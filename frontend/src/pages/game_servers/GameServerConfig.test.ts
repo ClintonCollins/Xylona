@@ -77,6 +77,7 @@ function mountConfig() {
     global: {
       stubs: {
         'q-icon': { template: '<i />' },
+        QSelect: true,
         'q-spinner-dots': { template: '<div class="spinner-stub" />' },
         'q-banner': { template: '<div><slot /><slot name="action" /></div>' },
         'q-btn': {
@@ -84,11 +85,17 @@ function mountConfig() {
           emits: ['click'],
           template: `<button @click="$emit('click')">{{ label }}</button>`,
         },
-        ConfigFileSidebar: { template: '<div class="sidebar-stub" />' },
+        ConfigFileSidebar: {
+          name: 'ConfigFileSidebar',
+          props: ['selectedPath', 'disabled'],
+          emits: ['select'],
+          template: '<div class="sidebar-stub" />',
+        },
         ConfigFileEditor: {
           name: 'ConfigFileEditor',
-          props: ['fields', 'saving', 'validationErrors'],
-          emits: ['save', 'discard'],
+          props: ['fields', 'advancedFields', 'filePath', 'saving', 'validationErrors'],
+          emits: ['save', 'discard', 'generate'],
+          data: () => ({ hasChanges: false }),
           methods: { confirmSaved: mocks.confirmSaved },
           template: '<div class="editor-stub" />',
         },
@@ -116,10 +123,12 @@ async function mountWithFile() {
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
-  const promise = new Promise<T>((resolvePromise) => {
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
     resolve = resolvePromise
+    reject = rejectPromise
   })
-  return { promise, resolve }
+  return { promise, resolve, reject }
 }
 
 describe('GameServerConfig', () => {
@@ -294,6 +303,321 @@ describe('GameServerConfig', () => {
 
     expect(mocks.confirmSaved).toHaveBeenCalledTimes(1)
     expect(mocks.getGameServerConfigFile).toHaveBeenCalledTimes(2)
+  })
+
+  async function mountWithMultipleFiles() {
+    mocks.routeState.current = { params: { id: 'server-12' } }
+    mocks.getGameServerConfigFiles.mockResolvedValue({
+      configFiles: ['server.properties', 'other.properties', 'third.properties'].map((path) => ({
+        path,
+        category: 'Server',
+        format: 'properties',
+        existsOnDisk: true,
+      })),
+    })
+    mocks.getGameServerConfigFile.mockResolvedValue({
+      fields: [{ key: 'motd', value: 'Hello' }],
+      advancedFields: [],
+    })
+    mocks.getGameServer.mockResolvedValue({ gameServer: { gameId: 'minecraft' } })
+    const wrapper = mountConfig()
+    await flushPromises()
+    mocks.getGameServerConfigFile.mockClear()
+    return wrapper
+  }
+
+  type ConfigWrapper = Awaited<ReturnType<typeof mountWithMultipleFiles>>
+
+  async function selectFile(wrapper: ConfigWrapper, path: string) {
+    wrapper.findComponent({ name: 'ConfigFileSidebar' }).vm.$emit('select', path, false)
+    await flushPromises()
+  }
+
+  const otherFile = { fields: [{ key: 'other-setting', value: 'Other' }], advancedFields: [] }
+  const thirdFile = { fields: [{ key: 'third-setting', value: 'Third' }], advancedFields: [] }
+
+  it('hides the previous file fields until the selected file is loaded', async () => {
+    const wrapper = await mountWithMultipleFiles()
+    const pending = createDeferred<typeof otherFile>()
+    mocks.getGameServerConfigFile.mockReturnValueOnce(pending.promise)
+    await selectFile(wrapper, 'other.properties')
+    expect(wrapper.find('.editor-stub').exists()).toBe(false)
+    expect(wrapper.find('[data-test="config-file-loading"]').text()).toContain('other.properties')
+    expect(wrapper.find('[data-test="config-file-loading"]').attributes('role')).toBe('status')
+    pending.resolve(otherFile)
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('fields')).toEqual(
+      otherFile.fields,
+    )
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('filePath')).toBe(
+      'other.properties',
+    )
+    expect(wrapper.find('[data-test="config-file-loading"]').exists()).toBe(false)
+  })
+
+  it.each(['success', 'failure'] as const)(
+    'ignores an older file response after a newer selection succeeds (%s)',
+    async (outcome) => {
+      const wrapper = await mountWithMultipleFiles()
+      const pending = createDeferred<typeof otherFile>()
+      mocks.getGameServerConfigFile
+        .mockReturnValueOnce(pending.promise)
+        .mockResolvedValueOnce(thirdFile)
+      await selectFile(wrapper, 'other.properties')
+      await selectFile(wrapper, 'third.properties')
+      if (outcome === 'success') pending.resolve(otherFile)
+      else pending.reject(new Error('old request failed'))
+      await flushPromises()
+      expect(wrapper.find('[data-test="config-file-load-error"]').exists()).toBe(false)
+      expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('fields')).toEqual(
+        thirdFile.fields,
+      )
+      expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('filePath')).toBe(
+        'third.properties',
+      )
+      mocks.updateGameServerConfigFile.mockResolvedValueOnce({ success: true, errors: [] })
+      wrapper
+        .findComponent({ name: 'ConfigFileEditor' })
+        .vm.$emit('save', new Map([['third-setting', 'Edited']]))
+      await flushPromises()
+      expect(mocks.updateGameServerConfigFile).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          filePath: 'third.properties',
+          fields: [expect.objectContaining({ key: 'third-setting', value: 'Edited' })],
+        }),
+      )
+    },
+  )
+
+  it('keeps the latest selection loading when an older response finishes first', async () => {
+    const wrapper = await mountWithMultipleFiles()
+    const older = createDeferred<typeof otherFile>()
+    const newer = createDeferred<typeof thirdFile>()
+    mocks.getGameServerConfigFile
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise)
+    await selectFile(wrapper, 'other.properties')
+    await selectFile(wrapper, 'third.properties')
+    older.resolve(otherFile)
+    await flushPromises()
+    expect(wrapper.find('.editor-stub').exists()).toBe(false)
+    expect(wrapper.find('[data-test="config-file-loading"]').text()).toContain('third.properties')
+    newer.resolve(thirdFile)
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('fields')).toEqual(
+      thirdFile.fields,
+    )
+  })
+
+  it('does not reload the active file when it is selected again', async () => {
+    const wrapper = await mountWithMultipleFiles()
+    await selectFile(wrapper, 'server.properties')
+    expect(mocks.getGameServerConfigFile).not.toHaveBeenCalled()
+  })
+
+  it('retries the current failed file without accepting an older result', async () => {
+    const wrapper = await mountWithMultipleFiles()
+    const older = createDeferred<typeof otherFile>()
+    mocks.getGameServerConfigFile
+      .mockReturnValueOnce(older.promise)
+      .mockRejectedValueOnce(new Error('offline'))
+    await selectFile(wrapper, 'other.properties')
+    await selectFile(wrapper, 'third.properties')
+    expect(wrapper.find('[data-test="config-file-load-error"]').text()).toContain(
+      'third.properties',
+    )
+    older.resolve(otherFile)
+    await flushPromises()
+    expect(wrapper.find('[data-test="config-file-load-error"]').exists()).toBe(true)
+    mocks.getGameServerConfigFile.mockResolvedValueOnce(thirdFile)
+    await wrapper.find('[data-test="config-file-load-error"] button').trigger('click')
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('fields')).toEqual(
+      thirdFile.fields,
+    )
+  })
+
+  it.each(['save', 'generate'] as const)(
+    'holds the selected file during %s and its refresh',
+    async (operation) => {
+      const wrapper = await mountWithMultipleFiles()
+      const pending = createDeferred<{ success: boolean; errors: [] }>()
+      const reload = createDeferred<typeof otherFile>()
+      const mutation =
+        operation === 'save' ? mocks.updateGameServerConfigFile : mocks.generateGameServerConfigFile
+      mutation.mockReturnValueOnce(pending.promise)
+      mocks.getGameServerConfigFile.mockReturnValueOnce(reload.promise)
+      const editor = wrapper.findComponent({ name: 'ConfigFileEditor' })
+      editor.vm.$emit(operation, new Map([['motd', 'Updated']]))
+      await flushPromises()
+      expect(wrapper.findComponent({ name: 'ConfigFileSidebar' }).props('disabled')).toBe(true)
+      await selectFile(wrapper, 'other.properties')
+      expect(mocks.getGameServerConfigFile).not.toHaveBeenCalled()
+      editor.vm.$emit(operation, new Map([['motd', 'Again']]))
+      await flushPromises()
+      expect(mutation).toHaveBeenCalledTimes(1)
+      pending.resolve({ success: true, errors: [] })
+      await flushPromises()
+      await selectFile(wrapper, 'third.properties')
+      expect(mocks.getGameServerConfigFile).toHaveBeenCalledTimes(1)
+      expect(mocks.getGameServerConfigFile).toHaveBeenLastCalledWith(
+        expect.objectContaining({ filePath: 'server.properties' }),
+      )
+      reload.resolve(otherFile)
+      await flushPromises()
+      expect(wrapper.findComponent({ name: 'ConfigFileSidebar' }).props('disabled')).toBe(false)
+    },
+  )
+
+  it('keeps the current draft when switching files is cancelled', async () => {
+    const wrapper = await mountWithMultipleFiles()
+    const editor = wrapper.findComponent({ name: 'ConfigFileEditor' })
+    await editor.setData({ hasChanges: true })
+    const callbacks: { ok?: () => void; cancel?: () => void } = {}
+    const dialog = {
+      onOk(handler: () => void) {
+        callbacks.ok = handler
+        return dialog
+      },
+      onCancel(handler: () => void) {
+        callbacks.cancel = handler
+        return dialog
+      },
+      onDismiss() {
+        return dialog
+      },
+    }
+    mocks.dialog.mockReturnValue(dialog)
+    await selectFile(wrapper, 'other.properties')
+    expect(mocks.getGameServerConfigFile).not.toHaveBeenCalled()
+    callbacks.cancel?.()
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).vm).toBe(editor.vm)
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('filePath')).toBe(
+      'server.properties',
+    )
+    expect(mocks.getGameServerConfigFile).not.toHaveBeenCalled()
+  })
+
+  it('switches to the latest file when an older discard confirmation finishes late', async () => {
+    const wrapper = await mountWithMultipleFiles()
+    await wrapper.findComponent({ name: 'ConfigFileEditor' }).setData({ hasChanges: true })
+    const confirmations: (() => void)[] = []
+    mocks.dialog.mockImplementation(() => {
+      const dialog = {
+        onOk(handler: () => void) {
+          confirmations.push(handler)
+          return dialog
+        },
+        onCancel() {
+          return dialog
+        },
+        onDismiss() {
+          return dialog
+        },
+      }
+      return dialog
+    })
+    await selectFile(wrapper, 'other.properties')
+    await selectFile(wrapper, 'third.properties')
+    mocks.getGameServerConfigFile.mockResolvedValueOnce(thirdFile)
+    confirmations[1]?.()
+    await flushPromises()
+    confirmations[0]?.()
+    await flushPromises()
+    expect(mocks.getGameServerConfigFile).toHaveBeenCalledTimes(1)
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('filePath')).toBe(
+      'third.properties',
+    )
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('fields')).toEqual(
+      thirdFile.fields,
+    )
+  })
+
+  it('keeps the selected file if a save starts while discard confirmation is open', async () => {
+    const wrapper = await mountWithMultipleFiles()
+    const editor = wrapper.findComponent({ name: 'ConfigFileEditor' })
+    await editor.setData({ hasChanges: true })
+    let confirm: (() => void) | undefined
+    const dialog = {
+      onOk(handler: () => void) {
+        confirm = handler
+        return dialog
+      },
+      onCancel() {
+        return dialog
+      },
+      onDismiss() {
+        return dialog
+      },
+    }
+    mocks.dialog.mockReturnValue(dialog)
+    await selectFile(wrapper, 'other.properties')
+    const pending = createDeferred<{ success: boolean; errors: [] }>()
+    mocks.updateGameServerConfigFile.mockReturnValueOnce(pending.promise)
+    editor.vm.$emit('save', new Map([['motd', 'Updated']]))
+    await flushPromises()
+    confirm?.()
+    await flushPromises()
+    expect(mocks.getGameServerConfigFile).not.toHaveBeenCalled()
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('filePath')).toBe(
+      'server.properties',
+    )
+    pending.resolve({ success: true, errors: [] })
+    await flushPromises()
+    expect(mocks.getGameServerConfigFile).toHaveBeenLastCalledWith(
+      expect.objectContaining({ filePath: 'server.properties' }),
+    )
+  })
+
+  it('blocks stale editor events while a new file is loading', async () => {
+    const wrapper = await mountWithMultipleFiles()
+    const editor = wrapper.findComponent({ name: 'ConfigFileEditor' })
+    const pending = createDeferred<typeof otherFile>()
+    mocks.getGameServerConfigFile.mockReturnValueOnce(pending.promise)
+    // Queue a save in the same turn that the selection hides the old editor.
+    wrapper
+      .findComponent({ name: 'ConfigFileSidebar' })
+      .vm.$emit('select', 'other.properties', false)
+    await Promise.resolve()
+    editor.vm.$emit('save', new Map([['motd', 'Do not write to other.properties']]))
+    editor.vm.$emit('generate')
+    await flushPromises()
+    expect(mocks.updateGameServerConfigFile).not.toHaveBeenCalled()
+    expect(mocks.generateGameServerConfigFile).not.toHaveBeenCalled()
+    pending.resolve(otherFile)
+    await flushPromises()
+  })
+
+  it('uses the same safe loading flow for the mobile file picker', async () => {
+    const wrapper = await mountWithMultipleFiles()
+    const pending = createDeferred<typeof thirdFile>()
+    mocks.getGameServerConfigFile.mockReturnValueOnce(pending.promise)
+    wrapper.findComponent({ name: 'QSelect' }).vm.$emit('update:modelValue', 'third.properties')
+    await flushPromises()
+    expect(wrapper.find('.editor-stub').exists()).toBe(false)
+    expect(wrapper.find('[data-test="config-file-loading"]').text()).toContain('third.properties')
+    pending.resolve(thirdFile)
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('filePath')).toBe(
+      'third.properties',
+    )
+  })
+
+  it('does not refresh or announce a pending save after leaving the page', async () => {
+    const wrapper = await mountWithMultipleFiles()
+    const pending = createDeferred<{ success: boolean; errors: [] }>()
+    mocks.updateGameServerConfigFile.mockReturnValueOnce(pending.promise)
+    wrapper
+      .findComponent({ name: 'ConfigFileEditor' })
+      .vm.$emit('save', new Map([['motd', 'Updated']]))
+    await flushPromises()
+    wrapper.unmount()
+    pending.resolve({ success: true, errors: [] })
+    await flushPromises()
+    expect(mocks.getGameServerConfigFile).not.toHaveBeenCalled()
+    expect(mocks.notify).not.toHaveBeenCalled()
+    expect(mocks.confirmSaved).not.toHaveBeenCalled()
   })
 
   it('offers Retry when the config files fail to load', async () => {

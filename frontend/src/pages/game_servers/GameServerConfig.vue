@@ -65,12 +65,14 @@
       <config-file-sidebar
         v-if="configFiles.length > 1"
         :config-files="configFiles"
+        :disabled="saving || generating"
         :selected-path="selectedFilePath"
         @select="handleFileSelect" />
 
       <div class="config-editor-panel">
         <q-select
           v-if="configFiles.length > 1"
+          :disable="saving || generating"
           :model-value="selectedFilePath"
           :options="fileOptions"
           class="config-file-select"
@@ -86,6 +88,15 @@
         <div v-if="!selectedFilePath" class="config-placeholder">
           <q-icon class="text-xy-muted q-mb-sm" name="arrow_back" size="32px" />
           <div class="text-xy-secondary">Choose a config file to start editing</div>
+        </div>
+
+        <div
+          v-else-if="fileLoading"
+          class="config-loading"
+          data-test="config-file-loading"
+          role="status">
+          <q-spinner-dots color="primary" size="40px" />
+          <div class="text-xy-secondary q-mt-sm">Loading {{ selectedFilePath }}...</div>
         </div>
 
         <q-banner
@@ -139,7 +150,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { ConnectError } from '@connectrpc/connect'
@@ -193,6 +204,10 @@ const { confirmDiscard } = useUnsavedChangesGuard(editorHasChanges)
 const loading = ref(true)
 const loadError = ref('')
 const fileLoadError = ref('')
+const fileLoading = ref(false)
+let fileLoadVersion = 0
+let fileSelectionVersion = 0
+let active = true
 const saving = ref(false)
 const generating = ref(false)
 const configFiles = ref<ConfigFileInfo[]>([])
@@ -230,6 +245,12 @@ const hasSandboxCode = computed(
 
 onMounted(async () => {
   await Promise.all([loadConfigFiles(), loadGameServerIdentity()])
+})
+
+onBeforeUnmount(() => {
+  active = false
+  fileLoadVersion += 1
+  fileSelectionVersion += 1
 })
 
 async function loadGameServerIdentity() {
@@ -270,6 +291,7 @@ async function loadConfigFiles(showLoading = true) {
       gameServerId,
     })
     const response = await GetXylonaClient().getGameServerConfigFiles(request)
+    if (!active || gameServerId !== getGameServerId()) return
     configFiles.value = response.configFiles
     // Auto-select first file if none selected
     const firstFile = configFiles.value[0]
@@ -292,14 +314,23 @@ async function loadConfigFiles(showLoading = true) {
 
 async function handleFileSelect(path: string, isMissing: boolean) {
   const gameServerId = getGameServerId()
-  if (gameServerId === '') {
-    return
-  }
+  if (!active || gameServerId === '' || saving.value || generating.value) return
+  // Clicking the active file must not discard its pending advanced edits.
+  if (path === selectedFilePath.value && !fileLoadError.value) return
 
-  // Guard against switching files with unsaved changes
+  const selectionVersion = ++fileSelectionVersion
   if (
     path !== selectedFilePath.value &&
     !(await confirmDiscard('You have unsaved changes. Discard them and switch files?'))
+  ) {
+    return
+  }
+  if (
+    !active ||
+    selectionVersion !== fileSelectionVersion ||
+    gameServerId !== getGameServerId() ||
+    saving.value ||
+    generating.value
   ) {
     return
   }
@@ -308,7 +339,23 @@ async function handleFileSelect(path: string, isMissing: boolean) {
   selectedFileIsMissing.value = isMissing
   validationErrors.value = []
   pendingAdvancedUpdates.value = []
+  await loadSelectedFile(true)
+}
+
+async function loadSelectedFile(showLoading: boolean) {
+  const gameServerId = getGameServerId()
+  const path = selectedFilePath.value
+  const version = ++fileLoadVersion
+  const isCurrent = () =>
+    active &&
+    version === fileLoadVersion &&
+    gameServerId === getGameServerId() &&
+    path === selectedFilePath.value
+
   fileLoadError.value = ''
+  // File switches hide the old fields. A post-save refresh keeps the current
+  // editor mounted so it can retain edits made while that save was in flight.
+  if (showLoading) fileLoading.value = true
 
   // Missing files still load field data, which shows the defaults.
   try {
@@ -317,12 +364,16 @@ async function handleFileSelect(path: string, isMissing: boolean) {
       filePath: path,
     })
     const response = await GetXylonaClient().getGameServerConfigFile(request)
+    if (!isCurrent()) return
     fileFields.value = [...response.fields]
     fileAdvancedFields.value = [...response.advancedFields]
   } catch (unknownErr: unknown) {
+    if (!isCurrent()) return
     fileLoadError.value = ConnectErrorToString(ConnectError.from(unknownErr))
     fileFields.value = []
     fileAdvancedFields.value = []
+  } finally {
+    if (isCurrent()) fileLoading.value = false
   }
 }
 
@@ -335,10 +386,19 @@ function selectFileByPath(path: string) {
 
 async function handleSave(fieldValues: Map<string, string>) {
   const gameServerId = getGameServerId()
-  if (gameServerId === '' || selectedFilePath.value === '') {
+  if (
+    !active ||
+    gameServerId === '' ||
+    selectedFilePath.value === '' ||
+    saving.value ||
+    generating.value ||
+    fileLoading.value ||
+    fileLoadError.value
+  ) {
     return
   }
 
+  const filePath = selectedFilePath.value
   saving.value = true
   validationErrors.value = []
   let saved = false
@@ -356,7 +416,7 @@ async function handleSave(fieldValues: Map<string, string>) {
 
     const request = create(UpdateGameServerConfigFileRequestSchema, {
       gameServerId,
-      filePath: selectedFilePath.value,
+      filePath,
       fields,
       advancedFields:
         pendingAdvancedUpdates.value.length > 0
@@ -364,15 +424,18 @@ async function handleSave(fieldValues: Map<string, string>) {
           : (fileAdvancedFields.value as AdvancedFieldType[]),
     })
     const response = await GetXylonaClient().updateGameServerConfigFile(request)
+    if (!active || gameServerId !== getGameServerId()) return
 
     if (response.success) {
       saved = true
       if (fieldValues.has('SandboxCode')) sandboxInspectorRefreshKey.value += 1
-      notifySuccess(`${selectedFilePath.value} saved successfully`)
+      notifySuccess(`${filePath} saved successfully`)
+      selectedFileIsMissing.value = false
+      pendingAdvancedUpdates.value = []
       // Reload the file to get fresh state
-      await handleFileSelect(selectedFilePath.value, false)
+      await loadSelectedFile(false)
       // Refresh file list to update exists status (without showing loading spinner)
-      await loadConfigFiles(false)
+      if (active) await loadConfigFiles(false)
     } else {
       validationErrors.value = response.errors
     }
@@ -394,24 +457,35 @@ function handleDiscard() {
 
 async function handleGenerate() {
   const gameServerId = getGameServerId()
-  if (gameServerId === '' || selectedFilePath.value === '') {
+  if (
+    !active ||
+    gameServerId === '' ||
+    selectedFilePath.value === '' ||
+    saving.value ||
+    generating.value ||
+    fileLoading.value ||
+    fileLoadError.value
+  ) {
     return
   }
 
+  const filePath = selectedFilePath.value
   generating.value = true
   try {
     const request = create(GenerateGameServerConfigFileRequestSchema, {
       gameServerId,
-      filePath: selectedFilePath.value,
+      filePath,
     })
     const response = await GetXylonaClient().generateGameServerConfigFile(request)
+    if (!active || gameServerId !== getGameServerId()) return
 
     if (response.success) {
-      notifySuccess(`${selectedFilePath.value} generated successfully`)
+      notifySuccess(`${filePath} generated successfully`)
       selectedFileIsMissing.value = false
+      pendingAdvancedUpdates.value = []
       // Reload
-      await handleFileSelect(selectedFilePath.value, false)
-      await loadConfigFiles()
+      await loadSelectedFile(false)
+      if (active) await loadConfigFiles()
     }
   } catch (unknownErr: unknown) {
     notifyConnectError(unknownErr)
