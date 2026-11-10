@@ -1,6 +1,7 @@
 import { create } from '@bufbuild/protobuf'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
+import { Quasar, QTable, QTd } from 'quasar'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { UploadError } from '@/utils/upload'
@@ -218,9 +219,10 @@ function makeBackupProgress(overrides: MessageOverrides<BackupProgress> = {}) {
   })
 }
 
-function mountBackups() {
+function mountBackups(realTable = false) {
   return mount(GameServerBackups, {
     global: {
+      plugins: realTable ? [Quasar] : [],
       stubs: {
         'q-banner': {
           template:
@@ -244,8 +246,8 @@ function mountBackups() {
             '<div class="q-linear-progress-stub" :data-indeterminate="String(!!indeterminate)" :data-value="String(value ?? \'\')" />',
         },
         'q-separator': { template: '<hr />' },
-        'q-table': QTableStub,
-        'q-td': { template: '<div class="q-td-stub"><slot /></div>' },
+        'q-table': realTable ? QTable : QTableStub,
+        'q-td': realTable ? QTd : { template: '<div class="q-td-stub"><slot /></div>' },
         'q-tooltip': { template: '<span class="q-tooltip-stub"><slot /></span>' },
         BackupRestoreDialog: BackupRestoreDialogStub,
       },
@@ -271,6 +273,94 @@ describe('GameServerBackups', () => {
     Object.values(mocks).forEach((mock) => {
       mock.mockReset()
     })
+  })
+
+  it('sorts archive sizes numerically in both directions and restores the default order', async () => {
+    const backups = [
+      makeBackup({ id: 'large', archivePath: '/large.zip', sizeBytes: 1024n ** 3n }),
+      makeBackup({ id: 'small', archivePath: '/small.zip', sizeBytes: 900n }),
+      makeBackup({ id: 'medium', archivePath: '/medium.zip', sizeBytes: 20n * 1024n ** 2n }),
+    ]
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({ overview: makeOverview() })
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups })
+
+    const wrapper = mountBackups(true)
+    await flushPromises()
+    const archives = () =>
+      wrapper.findAll('tbody .backups-page__archive-name').map((row) => row.text())
+    const sizeHeader = wrapper.findAll('th').find((header) => header.text().includes('Size'))
+    if (!sizeHeader) throw new Error('Size column is missing')
+
+    expect(archives()).toEqual(['large.zip', 'small.zip', 'medium.zip'])
+    await sizeHeader.trigger('click')
+    expect(archives()).toEqual(['small.zip', 'medium.zip', 'large.zip'])
+    await sizeHeader.trigger('click')
+    expect(archives()).toEqual(['large.zip', 'medium.zip', 'small.zip'])
+    await sizeHeader.trigger('click')
+    expect(archives()).toEqual(['large.zip', 'small.zip', 'medium.zip'])
+    wrapper.unmount()
+  })
+
+  it('sorts completion times chronologically across months, days, and years', async () => {
+    const completionDates: [string, string][] = [
+      ['new-year', '2027-01-01T12:00:00Z'],
+      ['december', '2026-12-01T12:00:00Z'],
+      ['november-10', '2026-11-10T12:00:00Z'],
+      ['november-2', '2026-11-02T12:00:00Z'],
+    ]
+    const backups = completionDates.map(([id, date]) =>
+      makeBackup({
+        id,
+        archivePath: `/${id}.zip`,
+        completedAt: { seconds: BigInt(Date.parse(date) / 1000), nanos: 0 },
+      }),
+    )
+    backups.push(
+      makeBackup({
+        id: 'pending',
+        archivePath: '/pending.zip',
+        status: GameServerBackupStatus.PENDING,
+        completedAt: undefined,
+      }),
+      makeBackup({
+        id: 'failed',
+        archivePath: '/failed.zip',
+        status: GameServerBackupStatus.FAILED,
+        completedAt: undefined,
+      }),
+    )
+    mocks.getGameServerBackupOverview.mockResolvedValueOnce({ overview: makeOverview() })
+    mocks.listGameServerBackups.mockResolvedValueOnce({ backups })
+
+    const wrapper = mountBackups(true)
+    await flushPromises()
+    const archives = () =>
+      wrapper.findAll('tbody .backups-page__archive-name').map((row) => row.text())
+    const completedHeader = wrapper
+      .findAll('th')
+      .find((header) => header.text().includes('Completed'))
+    if (!completedHeader) throw new Error('Completed column is missing')
+
+    await completedHeader.trigger('click')
+    expect(archives().slice(0, 2)).toEqual(['pending.zip', 'failed.zip'])
+    expect(archives().slice(2)).toEqual([
+      'november-2.zip',
+      'november-10.zip',
+      'december.zip',
+      'new-year.zip',
+    ])
+    await completedHeader.trigger('click')
+    expect(archives().slice(0, 4)).toEqual([
+      'new-year.zip',
+      'december.zip',
+      'november-10.zip',
+      'november-2.zip',
+    ])
+    expect(archives().slice(4)).toEqual(['pending.zip', 'failed.zip'])
+    expect(
+      wrapper.findAll('tbody tr').filter((row) => row.findAll('td')[4]?.text() === '-'),
+    ).toHaveLength(2)
+    wrapper.unmount()
   })
 
   it('renders the disabled backup alert and create scheduled shortcut', async () => {

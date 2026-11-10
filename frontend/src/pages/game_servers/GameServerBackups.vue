@@ -93,17 +93,29 @@ const columns = [
   {
     name: 'size',
     label: 'Size',
-    field: (row: GameServerBackup) => formatBackupSize(row.sizeBytes),
+    field: (row: GameServerBackup) => row.sizeBytes,
+    format: formatBackupSize,
     align: 'left' as const,
     sortable: true,
+    sort: (left: bigint, right: bigint) => (left < right ? -1 : left > right ? 1 : 0),
     classes: 'xy-num',
   },
   {
     name: 'createdAt',
     label: 'Completed',
-    field: (row: GameServerBackup) => formatCompletedTimestamp(row),
+    field: (row: GameServerBackup) =>
+      row.status !== GameServerBackupStatus.PENDING && row.completedAt
+        ? timestampValue(row.completedAt)
+        : null,
+    format: (_value: number | null, row: GameServerBackup) => formatCompletedTimestamp(row),
     align: 'left' as const,
     sortable: true,
+    rawSort: (left: number | null, right: number | null) => {
+      if (left === right) return 0
+      if (left === null) return -1
+      if (right === null) return 1
+      return left - right
+    },
     classes: 'xy-num',
   },
   {
