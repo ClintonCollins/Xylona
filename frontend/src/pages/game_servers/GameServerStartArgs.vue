@@ -178,6 +178,8 @@ const loading = ref(true)
 const loadError = ref('')
 const saving = ref(false)
 const restarting = ref(false)
+const busy = computed(() => saving.value || restarting.value)
+let unmounted = false
 const serverStatusFresh = ref(false)
 const isSuperUser = ref(false)
 const gameServer = ref<GetGameServerResponse['gameServer']>()
@@ -326,7 +328,7 @@ const resolvedTokenCount = computed(() =>
 )
 
 const isDirty = computed(() => draftChangeCount.value > 0)
-useUnsavedChangesGuard(isDirty)
+useUnsavedChangesGuard(() => isDirty.value || busy.value)
 const protectedBlockIDs = computed(
   () =>
     new Set(
@@ -364,6 +366,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  unmounted = true
   XylonaEventBus.off('gameServerStatus', onServerStatus)
   XylonaEventBus.off('websocketConnected', onWebsocketReconnect)
   XylonaEventBus.off('websocketDisconnected', onWebsocketDisconnect)
@@ -468,26 +471,36 @@ async function loadNodes() {
 }
 
 async function saveOnly() {
-  await savePatches(false)
+  if (busy.value || unmounted) return
+  saving.value = true
+  try {
+    await savePatches(false)
+  } finally {
+    saving.value = false
+  }
 }
 
 async function saveAndRestart() {
-  if (!restartStateAuthoritative.value || !gameServer.value) {
+  if (busy.value || unmounted || !restartStateAuthoritative.value || !gameServer.value) {
     return
   }
 
   // Same players-online confirmation as the server bar's Restart.
   restarting.value = true
-  const playerCount = await onlinePlayerCount()
-  restarting.value = false
-  const confirmed = await askLifecycleConfirmation(
-    $q,
-    buildLifecycleConfirmation('restart', [
-      { displayName: gameServer.value.name || 'this server', playerCount },
-    ]),
-  )
-  if (confirmed) {
-    await savePatches(true)
+  try {
+    const playerCount = await onlinePlayerCount()
+    if (unmounted || !restartStateAuthoritative.value) return
+    const confirmed = await askLifecycleConfirmation(
+      $q,
+      buildLifecycleConfirmation('restart', [
+        { displayName: gameServer.value.name || 'this server', playerCount },
+      ]),
+    )
+    if (confirmed && !unmounted && restartStateAuthoritative.value) {
+      await savePatches(true)
+    }
+  } finally {
+    restarting.value = false
   }
 }
 
@@ -514,21 +527,22 @@ async function savePatches(restartAfterSave: boolean) {
     return
   }
 
-  if (restartAfterSave) {
-    restarting.value = true
-  } else {
-    saving.value = true
-  }
+  // Keep the submitted snapshot separate from the still-editable draft.
+  const submittedPatchesJson = serializeStartArgsPatches(draftPatches.value)
+  const submittedBaseCommandOverride = draftBaseCommandOverride.value
 
   let startArgsSaved = false
   try {
     const response = await GetXylonaClient().updateGameServerStartArgs(
       create(UpdateGameServerStartArgsRequestSchema, {
         serverId: gameServerId.value,
-        startArgsPatches: serializeStartArgsPatches(draftPatches.value),
-        baseCommandOverride: draftBaseCommandOverride.value,
+        startArgsPatches: submittedPatchesJson,
+        baseCommandOverride: submittedBaseCommandOverride,
       }),
     )
+    if (unmounted) return
+    const patchesUnchanged = serializeStartArgsPatches(draftPatches.value) === submittedPatchesJson
+    const baseCommandUnchanged = draftBaseCommandOverride.value === submittedBaseCommandOverride
     const runtimeStatus = gameServer.value.status
     gameServer.value = response.gameServer
       ? create(GameServerSchema, {
@@ -537,9 +551,10 @@ async function savePatches(restartAfterSave: boolean) {
         })
       : response.gameServer
     savedPatchesJson.value = response.gameServer?.startArgsPatches ?? ''
-    draftPatches.value = parseStartArgsPatches(savedPatchesJson.value)
     savedBaseCommandOverride.value = response.gameServer?.baseCommandOverride ?? ''
-    draftBaseCommandOverride.value = savedBaseCommandOverride.value
+    // Apply server normalization only where the operator has not made newer edits.
+    if (patchesUnchanged) draftPatches.value = parseStartArgsPatches(savedPatchesJson.value)
+    if (baseCommandUnchanged) draftBaseCommandOverride.value = savedBaseCommandOverride.value
     startArgsSaved = true
 
     if (restartAfterSave) {
@@ -547,12 +562,22 @@ async function savePatches(restartAfterSave: boolean) {
       await GetXylonaClient().restartGameServer(
         create(RestartGameServerRequestSchema, { serverId: gameServerId.value }),
       )
-      notifySuccess('Start command saved and server restarted.')
+      if (unmounted) return
+      notifySuccess(
+        isDirty.value
+          ? 'Submitted start command saved and server restarted. Newer edits are still unsaved.'
+          : 'Start command saved and server restarted.',
+      )
       return
     }
 
-    notifySuccess('Start command saved successfully.')
+    notifySuccess(
+      isDirty.value
+        ? 'Start command saved. Newer edits are still unsaved.'
+        : 'Start command saved successfully.',
+    )
   } catch (unknownError: unknown) {
+    if (unmounted) return
     notifyConnectError(
       unknownError,
       startArgsSaved
@@ -560,13 +585,11 @@ async function savePatches(restartAfterSave: boolean) {
         : 'Failed to save start command',
       { icon: 'report_problem' },
     )
-  } finally {
-    saving.value = false
-    restarting.value = false
   }
 }
 
 function confirmResetAll() {
+  if (busy.value || unmounted) return
   $q.dialog({
     title: 'Reset all start arguments?',
     message:
@@ -579,6 +602,7 @@ function confirmResetAll() {
 }
 
 function resetAll() {
+  if (busy.value || unmounted) return
   if (isSuperUser.value) {
     draftPatches.value = []
     draftBaseCommandOverride.value = ''
