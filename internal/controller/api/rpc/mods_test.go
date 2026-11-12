@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"slices"
 	"sync/atomic"
 	"testing"
@@ -24,6 +26,8 @@ import (
 type rpcMockModProvider struct {
 	id      string
 	details *modproviders.ModDetails
+	// localDownloads lets controller-side downloads succeed, for local servers.
+	localDownloads bool
 }
 
 func (p *rpcMockModProvider) ID() string {
@@ -42,8 +46,16 @@ func (p *rpcMockModProvider) GetVersions(_ context.Context, _ string, _ string, 
 	return p.details.Versions, nil
 }
 
-func (p *rpcMockModProvider) Download(_ context.Context, _ string, _ string, _ string) ([]modproviders.DownloadedFile, error) {
-	return nil, errors.New("controller-side provider download should not be called for remote mod RPCs")
+func (p *rpcMockModProvider) Download(_ context.Context, _ string, versionID string, destDir string) ([]modproviders.DownloadedFile, error) {
+	if !p.localDownloads {
+		return nil, errors.New("controller-side provider download should not be called for remote mod RPCs")
+	}
+	name := "remote-mod-" + versionID + ".jar"
+	errWrite := os.WriteFile(filepath.Join(destDir, name), []byte(versionID), 0o600)
+	if errWrite != nil {
+		return nil, fmt.Errorf("write mock download: %w", errWrite)
+	}
+	return []modproviders.DownloadedFile{{Path: name, IsPrimary: true}}, nil
 }
 
 func (p *rpcMockModProvider) CheckForUpdate(_ context.Context, _ string, _ string) (*modproviders.ModVersion, error) {
@@ -327,6 +339,91 @@ func TestInstalledModUpdatesResolveLatestVersion(t *testing.T) {
 	_, errCurrent := updateToLatest()
 	if connect.CodeOf(errCurrent) != connect.CodeFailedPrecondition {
 		t.Fatalf("UpdateMod(latest) on current mod code = %v, want %v", connect.CodeOf(errCurrent), connect.CodeFailedPrecondition)
+	}
+}
+
+func TestInstallModResolvesLatestVersion(t *testing.T) {
+	tests := []struct {
+		name          string
+		serverID      string
+		noVersions    bool
+		outOfProfile  bool
+		wantCode      connect.Code
+		wantVersionID string
+	}{
+		{name: "remote server installs the newest version", serverID: "server-remote-install", wantVersionID: "v2"},
+		{name: "local server installs the newest version", serverID: "server-local-1", wantVersionID: "v2"},
+		{name: "source outside the mod profile", serverID: "server-remote-install", outOfProfile: true, wantCode: connect.CodeFailedPrecondition},
+		{name: "no compatible version", serverID: "server-remote-install", noVersions: true, wantCode: connect.CodeFailedPrecondition},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := newRBACRPCFixture(t)
+			insertRemoteNodeForParityTests(t, fixture, "node-remote")
+			insertRemoteServerForParityTests(t, fixture, "server-remote-install")
+			_, errDir := fixture.conn.SQLDb.ExecContext(t.Context(), `update game_server set directory = ? where id = ?`, t.TempDir(), "server-local-1")
+			if errDir != nil {
+				t.Fatalf("set local server directory: %v", errDir)
+			}
+
+			provider := newRPCModProvider()
+			// Providers list versions newest first.
+			slices.Reverse(provider.details.Versions)
+			if tc.noVersions {
+				provider.details.Versions = nil
+			}
+			provider.localDownloads = tc.serverID == "server-local-1"
+			modproviders.RegisterProvider(provider)
+			profileSource := provider
+			if tc.outOfProfile {
+				profileSource = newRPCModProvider()
+				modproviders.RegisterProvider(profileSource)
+			}
+			_, errConfig := fixture.conn.SQLDb.ExecContext(
+				t.Context(),
+				`update game set server_software = ? where id = ?`,
+				fmt.Sprintf(`{"update_provider":{"kind":"none"},"mod_profile":{"install_path":"mods","sources":[{"id":%q}]}}`, profileSource.ID()),
+				"minecraft",
+			)
+			if errConfig != nil {
+				t.Fatalf("update minecraft mod profile: %v", errConfig)
+			}
+
+			remoteClient := &nodeclient.FakeNodeClient{
+				NodeID:                    "node-remote",
+				DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/remote-mod-2.0.0.jar", BytesWritten: 2048, SHA256: "remote-mod-v2-sha"},
+				RenameFileResult:          "mods/remote-mod-2.0.0.jar",
+			}
+			fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+			fixture.service.modManager = modmanager.New(fixture.conn)
+
+			// Dependencies install with an empty version ID, meaning "latest".
+			request := connect.NewRequest(&xylona.InstallModRequest{
+				GameServerId: tc.serverID,
+				Source:       provider.ID(),
+				SourceId:     "remote-mod",
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+			response, errInstall := fixture.service.InstallMod(t.Context(), request)
+
+			if tc.wantCode != 0 {
+				if connect.CodeOf(errInstall) != tc.wantCode {
+					t.Fatalf("InstallMod() error = %v, want code %v", errInstall, tc.wantCode)
+				}
+				if len(remoteClient.DownloadFileFromURLCalls) != 0 {
+					t.Fatalf("InstallMod() downloads = %+v, want none", remoteClient.DownloadFileFromURLCalls)
+				}
+				return
+			}
+			if errInstall != nil {
+				t.Fatalf("InstallMod() error = %v", errInstall)
+			}
+			installed := response.Msg.GetInstalledMod()
+			if installed.GetInstalledVersionId() != tc.wantVersionID || installed.GetInstalledVersion() != "2.0.0" {
+				t.Fatalf("InstallMod() version = %q (%q), want %q (2.0.0)", installed.GetInstalledVersionId(), installed.GetInstalledVersion(), tc.wantVersionID)
+			}
+		})
 	}
 }
 
