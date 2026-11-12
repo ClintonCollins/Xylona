@@ -107,6 +107,10 @@ func TestValheimExtractedModLifecycle(t *testing.T) {
 				t.Fatal(errDisable)
 			}
 			assertFile(".xylona-disabled/"+mod.ID+"/BepInEx/plugins/Author-Example/nested/mod.dll", "first")
+			_, errPin := conn.SQLDb.ExecContext(t.Context(), "UPDATE installed_mod SET pinned_version = '1.0.0' WHERE id = ?", mod.ID)
+			if errPin != nil {
+				t.Fatal(errPin)
+			}
 			mod, errInstall = conn.GetInstalledModByID(mod.ID)
 			if errInstall != nil {
 				t.Fatal(errInstall)
@@ -115,6 +119,9 @@ func TestValheimExtractedModLifecycle(t *testing.T) {
 			mod, errInstall = manager.changeValheimPackage(t.Context(), installClient, provider, "server-1", "Author-Example", "2.0.0", directory, mod)
 			if errInstall != nil {
 				t.Fatal(errInstall)
+			}
+			if mod.PinnedVersion.GetOr("") != "2.0.0" {
+				t.Fatalf("pinned version after explicit change = %q, want 2.0.0", mod.PinnedVersion.GetOr(""))
 			}
 			assertFile(".xylona-disabled/"+mod.ID+"/BepInEx/plugins/Author-Example/nested/replacement.dll", "second")
 			assertFile("BepInEx/config/example.cfg", "user setting")

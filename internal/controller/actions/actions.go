@@ -203,7 +203,6 @@ func NewInstance(ctx context.Context, database *db.Connection, embeddedNodeClien
 	}
 	go inst.backgroundJobQueryAllGameServers()
 	go inst.backgroundJobQueryPalworldMaps()
-	go inst.backgroundJobCheckModUpdates()
 	go inst.backgroundJobCheckVersionUpdates()
 
 	// Start the eventbus-driven auto-restart subscriber. Both embedded and
@@ -966,6 +965,19 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 		return
 	}
 
+	game, errGame := inst.db.GetGameByID(gameServer.GameID)
+	if errGame != nil {
+		log.Warn().Err(errGame).Str("game_server_id", gameServer.ID).
+			Msg("Pre-start mod auto-update: failed to get game, skipping")
+		return
+	}
+	scope, errScope := modmanager.NewUpdateScope(game, gameServer)
+	if errScope != nil {
+		log.Warn().Err(errScope).Str("game_server_id", gameServer.ID).
+			Msg("Pre-start mod auto-update: failed to resolve mod update scope, skipping")
+		return
+	}
+
 	// Route status messages through the NodeClient so they reach the right
 	// console buffer for both embedded and remote game servers.
 	statusFn := func(msg string) {
@@ -982,9 +994,9 @@ func (inst *Instance) runModAutoUpdates(gameServer *models.GameServer) {
 				Msg("Pre-start mod auto-update: remote node unavailable, skipping")
 			return
 		}
-		errAutoUpdate = inst.modManager.RunAutoUpdatesRemote(inst.ctx, client, gameServer.ID, "", gameServer.Directory, statusFn)
+		errAutoUpdate = inst.modManager.RunAutoUpdatesRemote(inst.ctx, client, gameServer.ID, scope, gameServer.Directory, statusFn)
 	} else {
-		errAutoUpdate = inst.modManager.RunAutoUpdates(inst.ctx, gameServer.ID, "", gameServer.Directory, statusFn)
+		errAutoUpdate = inst.modManager.RunAutoUpdates(inst.ctx, gameServer.ID, scope, gameServer.Directory, statusFn)
 	}
 	if errAutoUpdate != nil {
 		log.Warn().Err(errAutoUpdate).Str("game_server_id", gameServer.ID).

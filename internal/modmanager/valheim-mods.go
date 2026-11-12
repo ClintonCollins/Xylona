@@ -303,7 +303,7 @@ func (m *ModManager) changeValheimPackage(ctx context.Context, supplied FileClie
 		logRollbackError(tx.Rollback(context.WithoutCancel(ctx)), "Failed to rollback mod transaction")
 	}()
 	now := time.Now().UTC()
-	setter := &models.InstalledModSetter{InstalledVersion: omit.From(versionID), InstalledVersionID: omit.From(versionID), FileHash: omit.From(primaryHashFromDownloaded(files)), UpdatedAt: omit.From(now)}
+	setter := &models.InstalledModSetter{InstalledVersion: omit.From(versionID), InstalledVersionID: omit.From(versionID), PinnedVersion: movedPin(mod, versionID), FileHash: omit.From(primaryHashFromDownloaded(files)), UpdatedAt: omit.From(now)}
 	if old == nil {
 		setter.ID, setter.GameServerID = omit.From(mod.ID), omit.From(serverID)
 		setter.Source, setter.SourceID = omit.From("thunderstore"), omit.From(sourceID)
