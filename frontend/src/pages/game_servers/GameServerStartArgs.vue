@@ -572,15 +572,16 @@ async function savePatches(restartAfterSave: boolean) {
         create(RestartGameServerRequestSchema, { serverId: gameServerId.value }),
       )
       notifySuccess(
-        isDirty.value
+        isDirty.value && !unmounted
           ? 'Start command saved and server restarted. Newer edits are still unsaved.'
           : 'Start command saved and server restarted.',
       )
       return
     }
 
+    // Newer edits were discarded if the operator left the page.
     notifySuccess(
-      isDirty.value
+      isDirty.value && !unmounted
         ? 'Start command saved. Newer edits are still unsaved.'
         : 'Start command saved successfully.',
     )

@@ -671,6 +671,10 @@ describe('GameServerStartArgs', () => {
       'Failed to save start command',
       expect.anything(),
     )
+    // The failed request no longer holds the page once the draft is clean again.
+    viewModel.draftBaseCommandOverride = ''
+    expect(await mocks.leaveGuard?.()).toBe(true)
+    viewModel.draftBaseCommandOverride = './newer.sh'
     mocks.updateGameServerStartArgs.mockResolvedValueOnce(
       create(UpdateGameServerStartArgsResponseSchema, {
         gameServer: buildGameServer(Status.OFFLINE, './newer.sh'),
@@ -758,8 +762,11 @@ describe('GameServerStartArgs', () => {
       viewModel.draftBaseCommandOverride = './submitted.sh'
       const restarting = viewModel.saveAndRestart()
       if (stage === 'query') wrapper.unmount()
-      query.resolve(queryWithPlayers(stage === 'confirmation' ? 2 : 0))
+      query.resolve(queryWithPlayers(stage === 'save' ? 0 : 2))
       await flushPromises()
+      expect(mocks.dialog).toHaveBeenCalledTimes(Number(stage === 'confirmation'))
+      // An edit made during the save is discarded by leaving, so the toast must not mention it.
+      if (stage === 'save') viewModel.draftBaseCommandOverride = './discarded.sh'
       if (stage !== 'query') wrapper.unmount()
       if (stage === 'confirmation') accept()
       save.resolve(
@@ -777,6 +784,47 @@ describe('GameServerStartArgs', () => {
       }
     },
   )
+
+  it('saves and reports the backend error when the server stops during confirmation', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.ONLINE) }),
+    )
+    mocks.queryGameServer.mockResolvedValue(queryWithPlayers(2))
+    mocks.updateGameServerStartArgs.mockResolvedValue(
+      create(UpdateGameServerStartArgsResponseSchema, {
+        gameServer: buildGameServer(Status.OFFLINE, './submitted.sh'),
+      }),
+    )
+    const error = new Error('game server must be running to restart')
+    mocks.restartGameServer.mockRejectedValue(error)
+    let accept!: () => void
+    mocks.dialog.mockReturnValue({
+      onOk(handler: () => void) {
+        accept = handler
+        return this
+      },
+      onDismiss() {
+        return this
+      },
+    })
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as StartArgsViewModel
+    viewModel.draftBaseCommandOverride = './submitted.sh'
+    const restarting = viewModel.saveAndRestart()
+    await flushPromises()
+    mocks.eventBus.emit('gameServerStatus', 'server-1', 'Server', Status.OFFLINE)
+    accept()
+    await restarting
+    expect(mocks.updateGameServerStartArgs).toHaveBeenCalledTimes(1)
+    expect(mocks.restartGameServer).toHaveBeenCalledTimes(1)
+    expect(mocks.notify).toHaveBeenCalledWith(
+      error,
+      'Start command was saved, but the server could not restart',
+      expect.anything(),
+    )
+    wrapper.unmount()
+  })
 
   it('lets the operator leave during the restart and still reports its failure', async () => {
     mocks.getGameServer.mockResolvedValue(
