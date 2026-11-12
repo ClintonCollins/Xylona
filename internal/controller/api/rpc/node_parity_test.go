@@ -667,6 +667,76 @@ func TestRestartGameServerRunningStatusGate(t *testing.T) {
 	}
 }
 
+// cancelOnStopNodeClient reports the server online until it is stopped. The
+// stop cancels the restart request, like a browser tab closing mid-restart,
+// and the server reports offline from then on. Like a real node RPC, the stop
+// fails if its context was canceled.
+type cancelOnStopNodeClient struct {
+	*nodeclient.FakeNodeClient
+	cancelRequest context.CancelFunc
+	stopped       atomic.Bool
+}
+
+func (c *cancelOnStopNodeClient) StopProcess(ctx context.Context, _, _ string) error {
+	c.stopped.Store(true)
+	c.cancelRequest()
+	errContext := ctx.Err()
+	if errContext != nil {
+		return fmt.Errorf("stop process: %w", errContext)
+	}
+	return nil
+}
+
+func (c *cancelOnStopNodeClient) GetProcessSnapshot(_ context.Context, processID string) (*node.ProcessSnapshot, bool, error) {
+	if c.stopped.Load() {
+		return nil, false, nil
+	}
+	return &node.ProcessSnapshot{ID: processID, Status: xylona.Status_ONLINE.String()}, true, nil
+}
+
+func TestRestartGameServerFinishesAfterClientDisconnects(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-1")
+	// A game without the Minecraft EULA step, so the start itself can succeed.
+	_, errGame := fixture.conn.SQLDb.ExecContext(t.Context(),
+		`update game_server set game_id = ? where id = ?`, "terraria", "server-remote-1")
+	if errGame != nil {
+		t.Fatalf("set game error = %v", errGame)
+	}
+
+	requestCtx, cancelRequest := context.WithCancel(t.Context())
+	defer cancelRequest()
+	remoteClient := &cancelOnStopNodeClient{
+		FakeNodeClient: &nodeclient.FakeNodeClient{
+			NodeID:         "node-remote",
+			SnapshotResult: &node.NodeSnapshot{OS: "linux"},
+		},
+		cancelRequest: cancelRequest,
+	}
+	registry := testParityRegistry(
+		&nodeclient.FakeNodeClient{NodeID: "node-local", SnapshotResult: &node.NodeSnapshot{OS: "linux"}},
+		remoteClient,
+	)
+	configureLifecycleActionsForParityTests(t, fixture, registry)
+
+	request := connect.NewRequest(&xylona.RestartGameServerRequest{ServerId: "server-remote-1"})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-admin")
+	_, errRestart := fixture.service.RestartGameServer(requestCtx, request)
+	if errRestart != nil {
+		t.Fatalf("RestartGameServer() error = %v, want the restart to finish after the client disconnects", errRestart)
+	}
+	if requestCtx.Err() == nil {
+		t.Fatal("request context was not canceled; the test did not simulate a disconnect")
+	}
+	if len(remoteClient.StartProcessCalls) != 1 {
+		t.Fatalf("StartProcess call count = %d, want 1", len(remoteClient.StartProcessCalls))
+	}
+	if startID := remoteClient.StartProcessCalls[0].Config.ID; startID != "server-remote-1" {
+		t.Fatalf("StartProcess ID = %q, want server-remote-1", startID)
+	}
+}
+
 // Before its first query, a game with a query reads as not answered yet, and a
 // game without one reads as never reporting players (Unknown).
 func TestQueryGameServerFallbackReportsQuerySupport(t *testing.T) {

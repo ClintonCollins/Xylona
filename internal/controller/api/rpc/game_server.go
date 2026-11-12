@@ -770,11 +770,16 @@ func (xs *XylonaService) RestartGameServer(ctx context.Context, request *connect
 	if status != xylona.Status_ONLINE && status != xylona.Status_PRE_START {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("game server must be running to restart"))
 	}
-	errStop := xs.actionsInst.StopGameServer(ctx, gameServer)
+	// Once the stop is sent, a client that disconnects must not leave the server
+	// stopped, so the rest of the restart ignores request cancellation and the
+	// request deadline. Each step has its own bound: the node client timeout or
+	// the process stop timeout, and the offline wait below.
+	restartCtx := context.WithoutCancel(ctx)
+	errStop := xs.actionsInst.StopGameServer(restartCtx, gameServer)
 	if errStop != nil {
 		return nil, stopGameServerConnectError(errStop)
 	}
-	errWait := xs.waitForGameServerOffline(ctx, gameServer, 30*time.Second)
+	errWait := xs.waitForGameServerOffline(restartCtx, gameServer, 30*time.Second)
 	if errWait != nil {
 		return nil, errWait
 	}
