@@ -656,7 +656,7 @@ func TestRemoteModAutoUpdateUsesNodeDownload(t *testing.T) {
 		messages = append(messages, msg)
 	}
 
-	errAuto := mgr.RunAutoUpdatesRemote(context.Background(), client, "server-1", UpdateScope{}, serverDir, statusFn)
+	errAuto := mgr.RunAutoUpdatesRemote(context.Background(), client, "server-1", profileScope(pid), serverDir, statusFn)
 	if errAuto != nil {
 		t.Fatalf("RunAutoUpdatesRemote() error = %v", errAuto)
 	}
@@ -1173,7 +1173,7 @@ func TestRunAutoUpdates(t *testing.T) {
 		messages = append(messages, msg)
 	}
 
-	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", UpdateScope{}, serverDir, statusFn)
+	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", profileScope(pid), serverDir, statusFn)
 	if errAuto != nil {
 		t.Fatalf("RunAutoUpdates() error = %v", errAuto)
 	}
@@ -1228,7 +1228,7 @@ func TestRunAutoUpdatesSkipsPinned(t *testing.T) {
 		messages = append(messages, msg)
 	}
 
-	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", UpdateScope{}, serverDir, statusFn)
+	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", profileScope(pid), serverDir, statusFn)
 	if errAuto != nil {
 		t.Fatalf("RunAutoUpdates() error = %v", errAuto)
 	}
@@ -1276,7 +1276,7 @@ func TestRunAutoUpdatesContinuesOnFailure(t *testing.T) {
 	}
 
 	// Should not return error even though check fails.
-	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", UpdateScope{}, serverDir, statusFn)
+	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", profileScope(pid), serverDir, statusFn)
 	if errAuto != nil {
 		t.Fatalf("RunAutoUpdates() error = %v, expected nil (should continue on failure)", errAuto)
 	}

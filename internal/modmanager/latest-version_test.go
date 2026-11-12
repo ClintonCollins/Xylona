@@ -27,6 +27,16 @@ var steamWorkshopMock = sync.OnceValue(func() *mockProvider {
 	return provider
 })
 
+// profileScope returns a scope whose mod profile lists the given sources
+// without search params.
+func profileScope(sources ...string) UpdateScope {
+	scope := UpdateScope{Params: make(map[string]modproviders.SearchParams)}
+	for _, source := range sources {
+		scope.Params[source] = nil
+	}
+	return scope
+}
+
 func registerVersionsProvider(t *testing.T, versions []modproviders.ModVersion, versionsErr error) *mockProvider {
 	t.Helper()
 	provider := newMockProvider(newUniqueProviderID())
@@ -148,6 +158,7 @@ func TestLatestVersion(t *testing.T) {
 	}, nil)
 	empty := registerVersionsProvider(t, nil, nil)
 	failing := registerVersionsProvider(t, nil, errProviderDown)
+	profile := profileScope(listed.ID(), empty.ID(), failing.ID(), "steam_workshop", "missing-provider")
 
 	tests := []struct {
 		name    string
@@ -159,16 +170,25 @@ func TestLatestVersion(t *testing.T) {
 		{
 			name:   "newest listed version",
 			mod:    &models.InstalledMod{Source: listed.ID(), SourceID: "mod", InstalledVersionID: "v1"},
+			scope:  profile,
 			wantID: "v2",
 		},
 		{
 			name:    "steam workshop cannot install a newer version",
 			mod:     &models.InstalledMod{Source: "steam_workshop", SourceID: "123", InstalledVersionID: "1"},
+			scope:   profile,
 			wantErr: ErrLatestUnsupported,
 		},
 		{
 			name:    "unregistered source",
 			mod:     &models.InstalledMod{Source: "missing-provider", SourceID: "mod", InstalledVersionID: "v1"},
+			scope:   profile,
+			wantErr: ErrLatestUnsupported,
+		},
+		{
+			name:    "source outside the server's mod profile",
+			mod:     &models.InstalledMod{Source: listed.ID(), SourceID: "mod", InstalledVersionID: "v1"},
+			scope:   profileScope("other-source"),
 			wantErr: ErrLatestUnsupported,
 		},
 		{
@@ -180,11 +200,13 @@ func TestLatestVersion(t *testing.T) {
 		{
 			name:    "provider lists no versions",
 			mod:     &models.InstalledMod{Source: empty.ID(), SourceID: "mod", InstalledVersionID: "v1"},
+			scope:   profile,
 			wantErr: modproviders.ErrNoUpdateAvailable,
 		},
 		{
 			name:    "provider failure",
 			mod:     &models.InstalledMod{Source: failing.ID(), SourceID: "mod", InstalledVersionID: "v1"},
+			scope:   profile,
 			wantErr: errProviderDown,
 		},
 	}
@@ -252,7 +274,7 @@ func TestLatestVersionUsesScopeAndCachesProviderAnswers(t *testing.T) {
 	// Failures are retried rather than remembered.
 	failingMod := &models.InstalledMod{Source: failing.ID(), SourceID: "mod", InstalledVersionID: "v1"}
 	for range 2 {
-		_, errFailing := mgr.LatestVersion(t.Context(), failingMod, UpdateScope{})
+		_, errFailing := mgr.LatestVersion(t.Context(), failingMod, profileScope(failing.ID()))
 		if errFailing == nil {
 			t.Fatal("LatestVersion() error = nil, want provider failure")
 		}
@@ -278,7 +300,7 @@ func TestCheckUpdates(t *testing.T) {
 		{ID: "failing", Source: failing.ID(), SourceID: "e", InstalledVersionID: "v1", Enabled: 1},
 	}
 
-	updates, errCheck := New(nil).CheckUpdates(t.Context(), mods, UpdateScope{})
+	updates, errCheck := New(nil).CheckUpdates(t.Context(), mods, profileScope(provider.ID(), failing.ID(), "steam_workshop"))
 	if errCheck != nil {
 		t.Fatalf("CheckUpdates() error = %v", errCheck)
 	}

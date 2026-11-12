@@ -33,7 +33,8 @@ var latestUnsupportedSources = map[string]bool{
 }
 
 // UpdateScope holds what "latest" means for one game server's mods: the
-// provider filters and game version that installing from Browse uses.
+// provider filters and game version that installing from Browse uses. Params
+// has an entry, possibly nil, for each source in the server's mod profile.
 type UpdateScope struct {
 	GameID      string
 	GameVersion string
@@ -84,7 +85,13 @@ func (m *ModManager) LatestVersion(ctx context.Context, mod *models.InstalledMod
 		}, nil
 	}
 
-	versions, errVersions := m.providerVersions(ctx, provider, mod.SourceID, scope.GameVersion, scope.Params[mod.Source])
+	params, inProfile := scope.Params[mod.Source]
+	if !inProfile {
+		// Without the profile's filters, providers would offer builds for other loaders.
+		return nil, fmt.Errorf("%w: %s is not a mod source for this server", ErrLatestUnsupported, mod.Source)
+	}
+
+	versions, errVersions := m.providerVersions(ctx, provider, mod.SourceID, scope.GameVersion, params)
 	if errVersions != nil {
 		return nil, errVersions
 	}
