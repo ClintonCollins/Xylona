@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/aarondl/opt/omit"
+	"github.com/aarondl/opt/omitnull"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/stephenafamo/bob"
@@ -43,6 +44,9 @@ var (
 type ModManager struct {
 	db          *db.Connection
 	serverLocks sync.Map
+
+	versionListsMu sync.Mutex
+	versionLists   map[string]versionListEntry
 }
 
 func (m *ModManager) lockServerMods(serverID string) func() {
@@ -79,7 +83,7 @@ type remoteDownloadPlan struct {
 
 // New creates a new ModManager.
 func New(database *db.Connection) *ModManager {
-	return &ModManager{db: database}
+	return &ModManager{db: database, versionLists: make(map[string]versionListEntry)}
 }
 
 func wrapProviderDownloadError(err error) error {
@@ -366,6 +370,15 @@ func verifiedRemoteDownloadSize(version modproviders.ModVersion, result node.Dow
 		return version.FileSize
 	}
 	return result.BytesWritten
+}
+
+// movedPin keeps a pinned mod pinned to the version an explicit update installs,
+// so Update All and auto-update keep skipping it. Unpinned mods stay unpinned.
+func movedPin(mod *models.InstalledMod, versionString string) omitnull.Val[string] {
+	if mod.PinnedVersion.IsNull() {
+		return omitnull.Val[string]{}
+	}
+	return omitnull.From(versionString)
 }
 
 func primaryHashFromDownloaded(downloaded []modproviders.DownloadedFile) string {
@@ -891,6 +904,7 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 	updateSetter := &models.InstalledModSetter{
 		InstalledVersion:   omit.From(versionString),
 		InstalledVersionID: omit.From(versionID),
+		PinnedVersion:      movedPin(mod, versionString),
 		FileHash:           omit.From(primaryHash),
 		UpdatedAt:          omit.From(time.Now().UTC()),
 	}
@@ -1075,6 +1089,7 @@ func (m *ModManager) UpdateRemote(ctx context.Context, client FileClient, modID,
 	updateSetter := &models.InstalledModSetter{
 		InstalledVersion:   omit.From(plan.versionString),
 		InstalledVersionID: omit.From(versionID),
+		PinnedVersion:      movedPin(mod, plan.versionString),
 		FileHash:           omit.From(downloadHash),
 		UpdatedAt:          omit.From(time.Now().UTC()),
 	}
@@ -1115,43 +1130,46 @@ func (m *ModManager) UpdateRemote(ctx context.Context, client FileClient, modID,
 	return updated, nil
 }
 
-// CheckUpdates queries providers for newer versions of all installed mods.
+// noLatestVersion reports errors that mean a mod has nothing to update to,
+// as opposed to a failed check.
+func noLatestVersion(err error) bool {
+	return errors.Is(err, modproviders.ErrNoUpdateAvailable) || errors.Is(err, ErrLatestUnsupported)
+}
+
+// CheckUpdates returns the latest version of each enabled mod whose installed
+// version differs from it, keyed by installed mod ID. A failed provider check
+// leaves that mod out rather than failing the batch.
 func (m *ModManager) CheckUpdates(
 	ctx context.Context,
-	serverID, gameVersion string,
+	mods []*models.InstalledMod,
+	scope UpdateScope,
 ) (map[string]*modproviders.ModVersion, error) {
-	mods, errGet := m.db.GetInstalledModsByGameServerID(serverID)
-	if errGet != nil {
-		return nil, fmt.Errorf("modmanager: get installed mods: %w", errGet)
-	}
-
 	updates := make(map[string]*modproviders.ModVersion)
 	var mu sync.Mutex
 
-	g, gCtx := errgroup.WithContext(ctx)
+	// Bound concurrent provider requests for servers with many mods.
+	var g errgroup.Group
+	g.SetLimit(8)
 
 	for _, mod := range mods {
+		if mod.Enabled != 1 {
+			continue
+		}
 		g.Go(func() error {
-			provider, ok := modproviders.GetProvider(mod.Source)
-			if !ok {
-				return nil // Skip unknown providers.
-			}
-
-			version, errCheck := provider.CheckForUpdate(gCtx, mod.SourceID, gameVersion)
-			if errCheck != nil {
-				if errors.Is(errCheck, modproviders.ErrNoUpdateAvailable) {
-					return nil
+			latest, errLatest := m.LatestVersion(ctx, mod, scope)
+			if errLatest != nil {
+				if !noLatestVersion(errLatest) {
+					log.Warn().Err(errLatest).
+						Str("mod", mod.ModName).
+						Str("source", mod.Source).
+						Msg("Failed to check for mod update")
 				}
-				log.Warn().Err(errCheck).
-					Str("mod", mod.ModName).
-					Str("source", mod.Source).
-					Msg("Failed to check for mod update")
-				return nil // Don't fail the whole batch.
+				return nil
 			}
 
-			if version != nil && version.VersionID != mod.InstalledVersionID {
+			if latest.VersionID != mod.InstalledVersionID {
 				mu.Lock()
-				updates[mod.ID] = version
+				updates[mod.ID] = latest
 				mu.Unlock()
 			}
 			return nil
@@ -1170,13 +1188,15 @@ func (m *ModManager) CheckUpdates(
 // statusFn receives status messages for WebSocket streaming.
 func (m *ModManager) RunAutoUpdates(
 	ctx context.Context,
-	serverID, gameVersion, serverDir string,
+	serverID string,
+	scope UpdateScope,
+	serverDir string,
 	statusFn func(string),
 ) error {
 	return m.runEligibleAutoUpdates(
 		ctx,
 		serverID,
-		gameVersion,
+		scope,
 		serverDir,
 		statusFn,
 		func(ctx context.Context, modID, versionID, serverDir string) (*models.InstalledMod, error) {
@@ -1190,13 +1210,15 @@ func (m *ModManager) RunAutoUpdates(
 func (m *ModManager) RunAutoUpdatesRemote(
 	ctx context.Context,
 	client FileClient,
-	serverID, gameVersion, serverDir string,
+	serverID string,
+	scope UpdateScope,
+	serverDir string,
 	statusFn func(string),
 ) error {
 	return m.runEligibleAutoUpdates(
 		ctx,
 		serverID,
-		gameVersion,
+		scope,
 		serverDir,
 		statusFn,
 		func(ctx context.Context, modID, versionID, serverDir string) (*models.InstalledMod, error) {
@@ -1208,7 +1230,9 @@ func (m *ModManager) RunAutoUpdatesRemote(
 
 func (m *ModManager) runEligibleAutoUpdates(
 	ctx context.Context,
-	serverID, gameVersion, serverDir string,
+	serverID string,
+	scope UpdateScope,
+	serverDir string,
 	statusFn func(string),
 	updateMod func(context.Context, string, string, string) (*models.InstalledMod, error),
 	updateFailureMessage string,
@@ -1229,16 +1253,11 @@ func (m *ModManager) runEligibleAutoUpdates(
 			continue
 		}
 
-		provider, ok := modproviders.GetProvider(mod.Source)
-		if !ok {
-			continue
-		}
-
 		statusFn(fmt.Sprintf("Checking for updates: %s", mod.ModName))
 
-		version, errCheck := provider.CheckForUpdate(ctx, mod.SourceID, gameVersion)
+		version, errCheck := m.LatestVersion(ctx, mod, scope)
 		if errCheck != nil {
-			if errors.Is(errCheck, modproviders.ErrNoUpdateAvailable) {
+			if noLatestVersion(errCheck) {
 				continue
 			}
 			log.Warn().Err(errCheck).Str("mod", mod.ModName).Msg("Failed to check for auto-update")

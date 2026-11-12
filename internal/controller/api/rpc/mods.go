@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -516,7 +517,7 @@ func (xs *XylonaService) UpdateMod(
 		return nil, errPerm
 	}
 
-	_, errMod := xs.getInstalledModForServer(request.Msg.GetInstalledModId(), gameServer.ID)
+	mod, errMod := xs.getInstalledModForServer(request.Msg.GetInstalledModId(), gameServer.ID)
 	if errMod != nil {
 		return nil, errMod
 	}
@@ -524,6 +525,16 @@ func (xs *XylonaService) UpdateMod(
 	errStopped := xs.ensureValheimModsStopped(ctx, gameServer)
 	if errStopped != nil {
 		return nil, errStopped
+	}
+
+	// An empty version ID asks for the latest version the server can use.
+	versionID := request.Msg.GetVersionId()
+	if versionID == "" {
+		latestID, errLatest := xs.latestModVersionID(ctx, gameServer, mod)
+		if errLatest != nil {
+			return nil, errLatest
+		}
+		versionID = latestID
 	}
 
 	remoteClient, isRemote, errRemoteClient := xs.remoteModClient(gameServer)
@@ -534,9 +545,9 @@ func (xs *XylonaService) UpdateMod(
 	var updated *models.InstalledMod
 	var errUpdate error
 	if isRemote {
-		updated, errUpdate = xs.modManager.UpdateRemote(ctx, remoteClient, request.Msg.GetInstalledModId(), request.Msg.GetVersionId(), gameServer.Directory)
+		updated, errUpdate = xs.modManager.UpdateRemote(ctx, remoteClient, mod.ID, versionID, gameServer.Directory)
 	} else {
-		updated, errUpdate = xs.modManager.Update(ctx, request.Msg.GetInstalledModId(), request.Msg.GetVersionId(), gameServer.Directory)
+		updated, errUpdate = xs.modManager.Update(ctx, mod.ID, versionID, gameServer.Directory)
 	}
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Msg("Failed to update mod")
@@ -550,9 +561,59 @@ func (xs *XylonaService) UpdateMod(
 	}, nil
 }
 
+// latestModVersionID resolves an update to "latest" to a concrete version ID.
+func (xs *XylonaService) latestModVersionID(ctx context.Context, gameServer *models.GameServer, mod *models.InstalledMod) (string, error) {
+	scope, errScope := modmanager.NewUpdateScope(gameServer.R.Game, gameServer)
+	if errScope != nil {
+		log.Error().Err(errScope).Str("game_server_id", gameServer.ID).Msg("Failed to resolve mod update scope")
+		return "", internalErrf("failed to resolve server configuration")
+	}
+
+	latest, errLatest := xs.modManager.LatestVersion(ctx, mod, scope)
+	switch {
+	case errors.Is(errLatest, modmanager.ErrLatestUnsupported):
+		return "", connect.NewError(connect.CodeFailedPrecondition, errors.New("this mod source cannot update to the latest version"))
+	case errors.Is(errLatest, modproviders.ErrNoUpdateAvailable):
+		return "", connect.NewError(connect.CodeFailedPrecondition, errors.New("no compatible version of this mod is available"))
+	case errLatest != nil:
+		log.Error().Err(errLatest).Str("installed_mod_id", mod.ID).Msg("Failed to resolve latest mod version")
+		return "", connect.NewError(connect.CodeUnavailable, errors.New("could not check for the latest mod version"))
+	case latest.VersionID == mod.InstalledVersionID:
+		return "", connect.NewError(connect.CodeFailedPrecondition, errors.New("mod is already up to date"))
+	}
+	return latest.VersionID, nil
+}
+
+// modUpdateCheckTimeout bounds how long listing installed mods waits on mod providers.
+const modUpdateCheckTimeout = 8 * time.Second
+
+// availableModUpdates returns the newer version for each of a server's mods
+// that has one. Mods whose provider check fails or runs past
+// modUpdateCheckTimeout are reported without update information.
+func (xs *XylonaService) availableModUpdates(ctx context.Context, gameServer *models.GameServer, mods []*models.InstalledMod) map[string]*modproviders.ModVersion {
+	if xs.modManager == nil || len(mods) == 0 {
+		return nil
+	}
+
+	scope, errScope := modmanager.NewUpdateScope(gameServer.R.Game, gameServer)
+	if errScope != nil {
+		log.Warn().Err(errScope).Str("game_server_id", gameServer.ID).Msg("Failed to resolve mod update scope")
+		return nil
+	}
+
+	checkCtx, cancel := context.WithTimeout(ctx, modUpdateCheckTimeout)
+	defer cancel()
+	updates, errCheck := xs.modManager.CheckUpdates(checkCtx, mods, scope)
+	if errCheck != nil {
+		log.Warn().Err(errCheck).Str("game_server_id", gameServer.ID).Msg("Failed to check for mod updates")
+		return nil
+	}
+	return updates
+}
+
 // ListInstalledMods returns all installed mods for a game server.
 func (xs *XylonaService) ListInstalledMods(
-	_ context.Context,
+	ctx context.Context,
 	request *connect.Request[xylona.ListInstalledModsRequest],
 ) (*connect.Response[xylona.ListInstalledModsResponse], error) {
 	user, errUser := xs.getUserFromHeader(request.Header())
@@ -575,9 +636,16 @@ func (xs *XylonaService) ListInstalledMods(
 		return nil, internalErrf("failed to list installed mods")
 	}
 
+	updates := xs.availableModUpdates(ctx, gameServer, mods)
 	var protoMods []*xylona.InstalledMod
 	for _, m := range mods {
-		protoMods = append(protoMods, protomap.InstalledModModelToProto(m))
+		protoMod := protomap.InstalledModModelToProto(m)
+		latest, hasUpdate := updates[m.ID]
+		if hasUpdate {
+			protoMod.UpdateAvailable = true
+			protoMod.LatestVersion = cmp.Or(latest.VersionString, latest.VersionID)
+		}
+		protoMods = append(protoMods, protoMod)
 	}
 
 	return &connect.Response[xylona.ListInstalledModsResponse]{

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -28,11 +29,24 @@ type mockProvider struct {
 	versions              []modproviders.ModVersion
 	downloadedFiles       []modproviders.DownloadedFile
 	downloadErrAfterWrite error
-	updateVersion         *modproviders.ModVersion
 	searchErr             error
 	detailsErr            error
 	downloadErr           error
-	checkForUpdateErr     error
+	versionsErr           error
+
+	versionRequestsMu sync.Mutex
+	versionRequests   []versionRequest
+}
+
+type versionRequest struct {
+	gameVersion string
+	params      modproviders.SearchParams
+}
+
+func (m *mockProvider) recordedVersionRequests() []versionRequest {
+	m.versionRequestsMu.Lock()
+	defer m.versionRequestsMu.Unlock()
+	return slices.Clone(m.versionRequests)
 }
 
 func (m *mockProvider) ID() string { return m.id }
@@ -52,8 +66,11 @@ func (m *mockProvider) GetModDetails(_ context.Context, _ string, _ modproviders
 	return m.details, m.detailsErr
 }
 
-func (m *mockProvider) GetVersions(_ context.Context, _ string, _ string, _ modproviders.SearchParams) ([]modproviders.ModVersion, error) {
-	return m.versions, nil
+func (m *mockProvider) GetVersions(_ context.Context, _ string, gameVersion string, params modproviders.SearchParams) ([]modproviders.ModVersion, error) {
+	m.versionRequestsMu.Lock()
+	m.versionRequests = append(m.versionRequests, versionRequest{gameVersion: gameVersion, params: params})
+	m.versionRequestsMu.Unlock()
+	return m.versions, m.versionsErr
 }
 
 func (m *mockProvider) Download(_ context.Context, _ string, _ string, targetDir string) ([]modproviders.DownloadedFile, error) {
@@ -79,7 +96,7 @@ func (m *mockProvider) Download(_ context.Context, _ string, _ string, targetDir
 }
 
 func (m *mockProvider) CheckForUpdate(_ context.Context, _ string, _ string) (*modproviders.ModVersion, error) {
-	return m.updateVersion, m.checkForUpdateErr
+	return nil, errors.New("mod updates resolve through GetVersions")
 }
 
 // providerCounter ensures each test gets a unique provider ID.
@@ -609,9 +626,9 @@ func TestRemoteModAutoUpdateUsesNodeDownload(t *testing.T) {
 
 	pid := newUniqueProviderID()
 	mock := newMockProvider(pid)
-	mock.updateVersion = &modproviders.ModVersion{
-		VersionID:     "v2",
-		VersionString: "2.0.0",
+	mock.versions = []modproviders.ModVersion{
+		{VersionID: "v2", VersionString: "2.0.0"},
+		{VersionID: "v1", VersionString: "1.0.0"},
 	}
 	modproviders.RegisterProvider(mock)
 
@@ -639,7 +656,7 @@ func TestRemoteModAutoUpdateUsesNodeDownload(t *testing.T) {
 		messages = append(messages, msg)
 	}
 
-	errAuto := mgr.RunAutoUpdatesRemote(context.Background(), client, "server-1", "1.20.1", serverDir, statusFn)
+	errAuto := mgr.RunAutoUpdatesRemote(context.Background(), client, "server-1", UpdateScope{}, serverDir, statusFn)
 	if errAuto != nil {
 		t.Fatalf("RunAutoUpdatesRemote() error = %v", errAuto)
 	}
@@ -1124,9 +1141,9 @@ func TestRunAutoUpdates(t *testing.T) {
 
 	pid := newUniqueProviderID()
 	mock := newMockProvider(pid)
-	mock.updateVersion = &modproviders.ModVersion{
-		VersionID:     "v2",
-		VersionString: "2.0.0",
+	mock.versions = []modproviders.ModVersion{
+		{VersionID: "v2", VersionString: "2.0.0"},
+		{VersionID: "v1", VersionString: "1.0.0"},
 	}
 	modproviders.RegisterProvider(mock)
 
@@ -1156,7 +1173,7 @@ func TestRunAutoUpdates(t *testing.T) {
 		messages = append(messages, msg)
 	}
 
-	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", "1.20.1", serverDir, statusFn)
+	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", UpdateScope{}, serverDir, statusFn)
 	if errAuto != nil {
 		t.Fatalf("RunAutoUpdates() error = %v", errAuto)
 	}
@@ -1185,9 +1202,9 @@ func TestRunAutoUpdatesSkipsPinned(t *testing.T) {
 
 	pid := newUniqueProviderID()
 	mock := newMockProvider(pid)
-	mock.updateVersion = &modproviders.ModVersion{
-		VersionID:     "v2",
-		VersionString: "2.0.0",
+	mock.versions = []modproviders.ModVersion{
+		{VersionID: "v2", VersionString: "2.0.0"},
+		{VersionID: "v1", VersionString: "1.0.0"},
 	}
 	modproviders.RegisterProvider(mock)
 
@@ -1211,7 +1228,7 @@ func TestRunAutoUpdatesSkipsPinned(t *testing.T) {
 		messages = append(messages, msg)
 	}
 
-	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", "1.20.1", serverDir, statusFn)
+	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", UpdateScope{}, serverDir, statusFn)
 	if errAuto != nil {
 		t.Fatalf("RunAutoUpdates() error = %v", errAuto)
 	}
@@ -1236,7 +1253,7 @@ func TestRunAutoUpdatesContinuesOnFailure(t *testing.T) {
 
 	pid := newUniqueProviderID()
 	mock := newMockProvider(pid)
-	mock.checkForUpdateErr = errors.New("simulated API failure")
+	mock.versionsErr = errors.New("simulated API failure")
 	modproviders.RegisterProvider(mock)
 
 	mgr := New(conn)
@@ -1259,7 +1276,7 @@ func TestRunAutoUpdatesContinuesOnFailure(t *testing.T) {
 	}
 
 	// Should not return error even though check fails.
-	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", "1.20.1", serverDir, statusFn)
+	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", UpdateScope{}, serverDir, statusFn)
 	if errAuto != nil {
 		t.Fatalf("RunAutoUpdates() error = %v, expected nil (should continue on failure)", errAuto)
 	}

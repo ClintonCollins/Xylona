@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -223,6 +224,109 @@ func TestRemoteModRPCsUseNodeFileOperations(t *testing.T) {
 	}
 	if remoteClient.DeleteFilesCalls[0].Files[0] != "mods/remote-mod-2.0.0.jar" {
 		t.Fatalf("UninstallMod() DeleteFiles files = %v", remoteClient.DeleteFilesCalls[0].Files)
+	}
+}
+
+func TestInstalledModUpdatesResolveLatestVersion(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	insertRemoteServerForParityTests(t, fixture, "server-remote-latest")
+
+	provider := newRPCModProvider()
+	// Providers list versions newest first.
+	slices.Reverse(provider.details.Versions)
+	modproviders.RegisterProvider(provider)
+	_, errConfig := fixture.conn.SQLDb.ExecContext(
+		t.Context(),
+		`update game set server_software = ? where id = ?`,
+		fmt.Sprintf(`{"update_provider":{"kind":"none"},"mod_profile":{"install_path":"mods","sources":[{"id":%q}]}}`, provider.ID()),
+		"minecraft",
+	)
+	if errConfig != nil {
+		t.Fatalf("update minecraft mod profile: %v", errConfig)
+	}
+
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:                    "node-remote",
+		DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/remote-mod-1.0.0.jar", BytesWritten: 1024, SHA256: "remote-mod-v1-sha"},
+		RenameFileResult:          "mods/remote-mod-1.0.0.jar",
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+	fixture.service.modManager = modmanager.New(fixture.conn)
+
+	installRequest := connect.NewRequest(&xylona.InstallModRequest{
+		GameServerId: "server-remote-latest",
+		Source:       provider.ID(),
+		SourceId:     "remote-mod",
+		VersionId:    "v1",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, installRequest, "user-owner")
+	installResponse, errInstall := fixture.service.InstallMod(t.Context(), installRequest)
+	if errInstall != nil {
+		t.Fatalf("InstallMod() error = %v", errInstall)
+	}
+	installedID := installResponse.Msg.GetInstalledMod().GetId()
+
+	pinRequest := connect.NewRequest(&xylona.PinModVersionRequest{
+		GameServerId:   "server-remote-latest",
+		InstalledModId: installedID,
+		Version:        "1.0.0",
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, pinRequest, "user-owner")
+	_, errPin := fixture.service.PinModVersion(t.Context(), pinRequest)
+	if errPin != nil {
+		t.Fatalf("PinModVersion() error = %v", errPin)
+	}
+
+	listInstalled := func() *xylona.InstalledMod {
+		t.Helper()
+		listRequest := connect.NewRequest(&xylona.ListInstalledModsRequest{GameServerId: "server-remote-latest"})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, listRequest, "user-owner")
+		listResponse, errList := fixture.service.ListInstalledMods(t.Context(), listRequest)
+		if errList != nil {
+			t.Fatalf("ListInstalledMods() error = %v", errList)
+		}
+		if len(listResponse.Msg.GetInstalledMods()) != 1 {
+			t.Fatalf("ListInstalledMods() mods = %d, want 1", len(listResponse.Msg.GetInstalledMods()))
+		}
+		return listResponse.Msg.GetInstalledMods()[0]
+	}
+	updateToLatest := func() (*connect.Response[xylona.UpdateModResponse], error) {
+		updateRequest := connect.NewRequest(&xylona.UpdateModRequest{
+			GameServerId:   "server-remote-latest",
+			InstalledModId: installedID,
+		})
+		addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, updateRequest, "user-owner")
+		return fixture.service.UpdateMod(t.Context(), updateRequest)
+	}
+
+	before := listInstalled()
+	if !before.GetUpdateAvailable() || before.GetLatestVersion() != "2.0.0" {
+		t.Fatalf("ListInstalledMods() update = %v %q, want true 2.0.0", before.GetUpdateAvailable(), before.GetLatestVersion())
+	}
+
+	remoteClient.DownloadFileFromURLCalls = nil
+	remoteClient.DownloadFileFromURLResult = node.DownloadFileResult{RelativePath: "mods/.xylona-download-update/remote-mod-2.0.0.jar", BytesWritten: 2048, SHA256: "remote-mod-v2-sha"}
+	updateResponse, errUpdate := updateToLatest()
+	if errUpdate != nil {
+		t.Fatalf("UpdateMod(latest) error = %v", errUpdate)
+	}
+	if len(remoteClient.DownloadFileFromURLCalls) != 1 || remoteClient.DownloadFileFromURLCalls[0].RawURL != "https://example.test/remote-mod-2.0.0.jar" {
+		t.Fatalf("UpdateMod(latest) downloads = %+v, want the 2.0.0 artifact", remoteClient.DownloadFileFromURLCalls)
+	}
+	updated := updateResponse.Msg.GetInstalledMod()
+	if updated.GetInstalledVersionId() != "v2" || updated.GetPinnedVersion() != "2.0.0" {
+		t.Fatalf("UpdateMod(latest) version = %q pin = %q, want v2 pinned to 2.0.0", updated.GetInstalledVersionId(), updated.GetPinnedVersion())
+	}
+
+	after := listInstalled()
+	if after.GetUpdateAvailable() || after.GetLatestVersion() != "" {
+		t.Fatalf("ListInstalledMods() after update = %v %q, want no update", after.GetUpdateAvailable(), after.GetLatestVersion())
+	}
+
+	_, errCurrent := updateToLatest()
+	if connect.CodeOf(errCurrent) != connect.CodeFailedPrecondition {
+		t.Fatalf("UpdateMod(latest) on current mod code = %v, want %v", connect.CodeOf(errCurrent), connect.CodeFailedPrecondition)
 	}
 }
 
