@@ -313,8 +313,8 @@ func moveRemoteExistingFilesToRollback(
 	return rollbackMoves, nil
 }
 
-func buildRemoteDownloadPlan(ctx context.Context, provider modproviders.ModProvider, sourceID string, versionID string) (*remoteDownloadPlan, error) {
-	details, errDetails := provider.GetModDetails(ctx, sourceID, nil)
+func buildRemoteDownloadPlan(ctx context.Context, provider modproviders.ModProvider, sourceID string, versionID string, params modproviders.SearchParams) (*remoteDownloadPlan, error) {
+	details, errDetails := provider.GetModDetails(ctx, sourceID, params)
 	if errDetails != nil {
 		return nil, fmt.Errorf("modmanager: get mod details failed: %w", errDetails)
 	}
@@ -457,10 +457,12 @@ func restoreMovedFiles(moves []fileMove) error {
 	return restoreErr
 }
 
-// Install downloads a mod via the provider and creates DB records.
+// Install downloads a mod via the provider and creates DB records. Params are
+// the search params of the mod profile source the mod comes from.
 func (m *ModManager) Install(
 	ctx context.Context,
 	serverID, source, sourceID, versionID, serverDir, installPath string,
+	params modproviders.SearchParams,
 ) (*models.InstalledMod, error) {
 	unlock := m.lockServerMods(serverID)
 	defer unlock()
@@ -486,7 +488,7 @@ func (m *ModManager) Install(
 		logRemoveAllError(stagingDir, "Failed to remove mod install staging directory")
 	}()
 
-	downloaded, errDownload := provider.Download(ctx, sourceID, versionID, stagingDir)
+	downloaded, errDownload := provider.Download(ctx, sourceID, versionID, stagingDir, params)
 	if errDownload != nil {
 		return nil, fmt.Errorf("modmanager: download failed: %w", wrapProviderDownloadError(errDownload))
 	}
@@ -591,10 +593,12 @@ func (m *ModManager) Install(
 }
 
 // InstallRemote downloads a mod through a node client and creates DB records.
+// Params are the search params of the mod profile source the mod comes from.
 func (m *ModManager) InstallRemote(
 	ctx context.Context,
 	client FileClient,
 	serverID, source, sourceID, versionID, serverDir, installPath string,
+	params modproviders.SearchParams,
 ) (*models.InstalledMod, error) {
 	unlock := m.lockServerMods(serverID)
 	defer unlock()
@@ -611,7 +615,7 @@ func (m *ModManager) InstallRemote(
 		return nil, fmt.Errorf("%w: %s", ErrProviderNotFound, source)
 	}
 
-	plan, errPlan := buildRemoteDownloadPlan(ctx, provider, sourceID, versionID)
+	plan, errPlan := buildRemoteDownloadPlan(ctx, provider, sourceID, versionID, params)
 	if errPlan != nil {
 		return nil, errPlan
 	}
@@ -764,8 +768,9 @@ func (m *ModManager) Uninstall(ctx context.Context, client FileClient, modID, se
 	return nil
 }
 
-// Update downloads a new version and replaces files.
-func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir string) (*models.InstalledMod, error) {
+// Update downloads a new version and replaces files. Params are the search
+// params of the mod profile source the mod comes from.
+func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir string, params modproviders.SearchParams) (*models.InstalledMod, error) {
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return nil, fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
@@ -806,7 +811,7 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 		logRemoveAllError(stagingDir, "Failed to remove mod update staging directory")
 	}()
 
-	downloaded, errDownload := provider.Download(ctx, mod.SourceID, versionID, stagingDir)
+	downloaded, errDownload := provider.Download(ctx, mod.SourceID, versionID, stagingDir, params)
 	if errDownload != nil {
 		return nil, fmt.Errorf("modmanager: download update: %w", wrapProviderDownloadError(errDownload))
 	}
@@ -949,7 +954,8 @@ func (m *ModManager) Update(ctx context.Context, modID, versionID, serverDir str
 }
 
 // UpdateRemote downloads a new version through a node client and replaces files.
-func (m *ModManager) UpdateRemote(ctx context.Context, client FileClient, modID, versionID, serverDir string) (*models.InstalledMod, error) {
+// Params are the search params of the mod profile source the mod comes from.
+func (m *ModManager) UpdateRemote(ctx context.Context, client FileClient, modID, versionID, serverDir string, params modproviders.SearchParams) (*models.InstalledMod, error) {
 	mod, errGet := m.db.GetInstalledModByID(modID)
 	if errGet != nil {
 		return nil, fmt.Errorf("%w: %s: %w", ErrModNotFound, modID, errGet)
@@ -984,7 +990,7 @@ func (m *ModManager) UpdateRemote(ctx context.Context, client FileClient, modID,
 		}
 	}
 
-	plan, errPlan := buildRemoteDownloadPlan(ctx, provider, mod.SourceID, versionID)
+	plan, errPlan := buildRemoteDownloadPlan(ctx, provider, mod.SourceID, versionID, params)
 	if errPlan != nil {
 		return nil, errPlan
 	}
@@ -1199,9 +1205,7 @@ func (m *ModManager) RunAutoUpdates(
 		scope,
 		serverDir,
 		statusFn,
-		func(ctx context.Context, modID, versionID, serverDir string) (*models.InstalledMod, error) {
-			return m.Update(ctx, modID, versionID, serverDir)
-		},
+		m.Update,
 		"Failed to auto-update mod",
 	)
 }
@@ -1221,8 +1225,8 @@ func (m *ModManager) RunAutoUpdatesRemote(
 		scope,
 		serverDir,
 		statusFn,
-		func(ctx context.Context, modID, versionID, serverDir string) (*models.InstalledMod, error) {
-			return m.UpdateRemote(ctx, client, modID, versionID, serverDir)
+		func(ctx context.Context, modID, versionID, serverDir string, params modproviders.SearchParams) (*models.InstalledMod, error) {
+			return m.UpdateRemote(ctx, client, modID, versionID, serverDir, params)
 		},
 		"Failed to auto-update remote mod",
 	)
@@ -1234,7 +1238,7 @@ func (m *ModManager) runEligibleAutoUpdates(
 	scope UpdateScope,
 	serverDir string,
 	statusFn func(string),
-	updateMod func(context.Context, string, string, string) (*models.InstalledMod, error),
+	updateMod func(context.Context, string, string, string, modproviders.SearchParams) (*models.InstalledMod, error),
 	updateFailureMessage string,
 ) error {
 	mods, errGet := m.db.GetInstalledModsByGameServerID(serverID)
@@ -1271,7 +1275,7 @@ func (m *ModManager) runEligibleAutoUpdates(
 
 		statusFn(fmt.Sprintf("Updating %s to %s", mod.ModName, version.VersionString))
 
-		_, errUpdate := updateMod(ctx, mod.ID, version.VersionID, serverDir)
+		_, errUpdate := updateMod(ctx, mod.ID, version.VersionID, serverDir, scope.Params[mod.Source])
 		if errUpdate != nil {
 			log.Error().Err(errUpdate).Str("mod", mod.ModName).Msg(updateFailureMessage)
 			statusFn(fmt.Sprintf("Failed to update %s: %s", mod.ModName, errUpdate.Error()))

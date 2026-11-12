@@ -225,7 +225,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 // Download fetches the application JAR for the given versionID and writes it to
 // targetDir. versionID must be in the format "{version}-{build}" (e.g.,
 // "1.21.4-100"). The filename is resolved from the build metadata.
-func (p *Provider) Download(ctx context.Context, sourceID string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
+func (p *Provider) Download(ctx context.Context, sourceID string, versionID string, targetDir string, _ modproviders.SearchParams) ([]modproviders.DownloadedFile, error) {
 	version, buildNum, errParse := parseVersionID(versionID)
 	if errParse != nil {
 		return nil, fmt.Errorf("papermc download: %w", errParse)

@@ -1526,7 +1526,7 @@ func (p *minecraftUpdateTestProvider) GetVersions(_ context.Context, sourceID st
 	}, nil
 }
 
-func (p *minecraftUpdateTestProvider) Download(_ context.Context, sourceID string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
+func (p *minecraftUpdateTestProvider) Download(_ context.Context, sourceID string, versionID string, targetDir string, _ modproviders.SearchParams) ([]modproviders.DownloadedFile, error) {
 	p.downloadCalls++
 	p.downloadSourceID = sourceID
 	p.downloadVersionID = versionID

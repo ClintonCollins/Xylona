@@ -338,7 +338,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 // --------------------------------------------------------------------------
 
 // Download fetches the primary file for the given version and writes it to targetDir.
-func (p *Provider) Download(ctx context.Context, _ string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
+func (p *Provider) Download(ctx context.Context, _ string, versionID string, targetDir string, _ modproviders.SearchParams) ([]modproviders.DownloadedFile, error) {
 	endpoint := fmt.Sprintf("%s/version/%s", p.baseURL, url.PathEscape(versionID))
 
 	var v modrinthVersion

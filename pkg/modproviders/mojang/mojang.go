@@ -137,7 +137,7 @@ func (p *Provider) GetVersions(ctx context.Context, _ string, gameVersion string
 }
 
 // Download fetches the Mojang server jar for the requested version.
-func (p *Provider) Download(ctx context.Context, _ string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
+func (p *Provider) Download(ctx context.Context, _ string, versionID string, targetDir string, _ modproviders.SearchParams) ([]modproviders.DownloadedFile, error) {
 	versionURL, errVersionURL := p.versionManifestURL(ctx, versionID)
 	if errVersionURL != nil {
 		return nil, errVersionURL

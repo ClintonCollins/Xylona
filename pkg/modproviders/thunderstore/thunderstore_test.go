@@ -294,7 +294,7 @@ func TestDownload(t *testing.T) {
 
 	provider := newTestProvider(srv)
 	targetDir := t.TempDir()
-	files, errDownload := provider.Download(context.Background(), "Author-SharedMod", "1.0.0", targetDir)
+	files, errDownload := provider.Download(context.Background(), "Author-SharedMod", "1.0.0", targetDir, nil)
 	if errDownload != nil {
 		t.Fatalf("Download() error = %v", errDownload)
 	}
@@ -323,7 +323,7 @@ func TestDownload(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, errUnsafe := provider.Download(context.Background(), test.sourceID, test.versionID, targetDir)
+			_, errUnsafe := provider.Download(context.Background(), test.sourceID, test.versionID, targetDir, nil)
 			if errUnsafe == nil {
 				t.Fatalf("Download(%q, %q) error = nil, want invalid identifier error", test.sourceID, test.versionID)
 			}

@@ -3,13 +3,16 @@ package hangar
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -386,7 +389,7 @@ func TestDownload_VerifiesSHA256(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	files, errDownload := p.Download(context.Background(), "EngineHub/WorldEdit", "7.2.15", t.TempDir())
+	files, errDownload := p.Download(context.Background(), "EngineHub/WorldEdit", "7.2.15", t.TempDir(), nil)
 	if errDownload != nil {
 		t.Fatalf("Download() error = %v", errDownload)
 	}
@@ -414,7 +417,7 @@ func TestDownload_RequiresSHA256Metadata(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	_, errDownload := p.Download(context.Background(), "EngineHub/WorldEdit", "7.2.15", t.TempDir())
+	_, errDownload := p.Download(context.Background(), "EngineHub/WorldEdit", "7.2.15", t.TempDir(), nil)
 	if errDownload == nil {
 		t.Fatal("Download() error = nil, want error")
 	}
@@ -439,12 +442,171 @@ func TestDownload_SHA256Mismatch(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	_, errDownload := p.Download(context.Background(), "EngineHub/WorldEdit", "7.2.15", t.TempDir())
+	_, errDownload := p.Download(context.Background(), "EngineHub/WorldEdit", "7.2.15", t.TempDir(), nil)
 	if errDownload == nil {
 		t.Fatal("Download() error = nil, want error")
 	}
 	if !errors.Is(errDownload, modproviders.ErrIntegrityMismatch) {
 		t.Fatalf("Download() error = %v, want %v", errDownload, modproviders.ErrIntegrityMismatch)
+	}
+}
+
+// --------------------------------------------------------------------------
+// Platform selection
+// --------------------------------------------------------------------------
+
+// platformJars holds a distinct file for each platform one Hangar version is
+// published for, so a test can tell which platform's file was picked.
+var platformJars = map[string][]byte{
+	"PAPER":     []byte("paper build"),
+	"VELOCITY":  []byte("velocity build"),
+	"WATERFALL": []byte("waterfall build"),
+}
+
+func sha256Hex(data []byte) string {
+	return fmt.Sprintf("%x", sha256.Sum256(data))
+}
+
+// newMultiPlatformServer serves version 2.0.0 of Author/Multi with a file for
+// each platform in platformJars. The returned func reports the platform query
+// of the last versions request.
+func newMultiPlatformServer(t *testing.T) (*httptest.Server, func() string) {
+	t.Helper()
+	var platformMu sync.Mutex
+	lastPlatform := ""
+
+	var srv *httptest.Server
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/projects/Author/Multi":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"name":"Multi","namespace":{"owner":"Author","slug":"Multi"}}`))
+		case "/projects/Author/Multi/versions":
+			platformMu.Lock()
+			lastPlatform = r.URL.Query().Get("platform")
+			platformMu.Unlock()
+
+			downloads := make(map[string]hangarPlatformDownload, len(platformJars))
+			for platform, jar := range platformJars {
+				name := strings.ToLower(platform) + ".jar"
+				downloads[platform] = hangarPlatformDownload{
+					DownloadURL: srv.URL + "/files/" + name,
+					FileInfo:    hangarVersionFileInfo{Name: name, SizeBytes: int64(len(jar)), SHA256: sha256Hex(jar)},
+				}
+			}
+			w.Header().Set("Content-Type", "application/json")
+			errEncode := json.NewEncoder(w).Encode(hangarVersionsResponse{Result: []hangarVersion{{Name: "2.0.0", Downloads: downloads}}})
+			if errEncode != nil {
+				t.Errorf("encode versions: %v", errEncode)
+			}
+		default:
+			jar, ok := platformJars[strings.ToUpper(strings.TrimSuffix(path.Base(r.URL.Path), ".jar"))]
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+			_, _ = w.Write(jar)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	return srv, func() string {
+		platformMu.Lock()
+		defer platformMu.Unlock()
+		return lastPlatform
+	}
+}
+
+func TestPrimaryDownloadFor(t *testing.T) {
+	downloadsFor := func(platforms ...string) map[string]hangarPlatformDownload {
+		downloads := make(map[string]hangarPlatformDownload, len(platforms))
+		for _, platform := range platforms {
+			downloads[platform] = hangarPlatformDownload{DownloadURL: "https://example.test/" + platform}
+		}
+		return downloads
+	}
+
+	tests := []struct {
+		name      string
+		downloads map[string]hangarPlatformDownload
+		platform  string
+		wantURL   string
+	}{
+		{name: "configured platform", downloads: downloadsFor("PAPER", "VELOCITY", "WATERFALL"), platform: "VELOCITY", wantURL: "https://example.test/VELOCITY"},
+		{name: "configured platform missing", downloads: downloadsFor("PAPER", "VELOCITY"), platform: "WATERFALL", wantURL: ""},
+		{name: "no platform prefers PAPER", downloads: downloadsFor("PAPER", "VELOCITY", "WATERFALL"), wantURL: "https://example.test/PAPER"},
+		{name: "no platform without PAPER", downloads: downloadsFor("WATERFALL", "VELOCITY"), wantURL: "https://example.test/VELOCITY"},
+		{name: "no downloads", downloads: nil, wantURL: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Map order is random; repeat so a pick that depends on it fails.
+			for range 20 {
+				gotURL, _, _ := primaryDownloadFor(tt.downloads, tt.platform)
+				if gotURL != tt.wantURL {
+					t.Fatalf("primaryDownloadFor(%q) URL = %q, want %q", tt.platform, gotURL, tt.wantURL)
+				}
+			}
+		})
+	}
+}
+
+func TestMultiPlatformVersionPicksPlatformFile(t *testing.T) {
+	tests := []struct {
+		name         string
+		params       modproviders.SearchParams
+		wantPlatform string
+	}{
+		{name: "configured platform", params: modproviders.SearchParams{"platform": "VELOCITY"}, wantPlatform: "VELOCITY"},
+		{name: "lower-case platform", params: modproviders.SearchParams{"platform": "waterfall"}, wantPlatform: "WATERFALL"},
+		{name: "official Minecraft variant platform", params: modproviders.SearchParams{"platform": "PAPER"}, wantPlatform: "PAPER"},
+		{name: "no params prefers PAPER", params: nil, wantPlatform: "PAPER"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, lastPlatform := newMultiPlatformServer(t)
+			p := newTestProvider(srv)
+			wantSHA256 := sha256Hex(platformJars[tt.wantPlatform])
+			wantQuery := ""
+			if tt.params != nil {
+				wantQuery = tt.wantPlatform
+			}
+
+			// Map order is random; repeat so a pick that depends on it fails.
+			for range 5 {
+				// Remote installs plan from GetModDetails.
+				details, errDetails := p.GetModDetails(context.Background(), "Author/Multi", tt.params)
+				if errDetails != nil {
+					t.Fatalf("GetModDetails() error = %v", errDetails)
+				}
+				if len(details.Versions) != 1 || details.Versions[0].FileHashSHA256 != wantSHA256 {
+					t.Fatalf("GetModDetails() versions = %+v, want the %s file", details.Versions, tt.wantPlatform)
+				}
+
+				files, errDownload := p.Download(context.Background(), "Author/Multi", "2.0.0", t.TempDir(), tt.params)
+				if errDownload != nil {
+					t.Fatalf("Download() error = %v", errDownload)
+				}
+				if len(files) != 1 || files[0].Hash != wantSHA256 {
+					t.Fatalf("Download() files = %+v, want the %s file", files, tt.wantPlatform)
+				}
+				if got := lastPlatform(); got != wantQuery {
+					t.Fatalf("Download() listed versions for platform %q, want %q", got, wantQuery)
+				}
+			}
+		})
+	}
+}
+
+func TestDownload_NoFileForPlatform(t *testing.T) {
+	srv, _ := newMultiPlatformServer(t)
+	p := newTestProvider(srv)
+
+	_, errDownload := p.Download(context.Background(), "Author/Multi", "2.0.0", t.TempDir(), modproviders.SearchParams{"platform": "SPONGE"})
+	if errDownload == nil || !strings.Contains(errDownload.Error(), "no download URL") {
+		t.Fatalf("Download() error = %v, want a missing download URL error", errDownload)
 	}
 }
 
@@ -527,6 +689,7 @@ func TestExtractPlatform(t *testing.T) {
 		{name: "nil params", params: nil, want: ""},
 		{name: "no platform key", params: modprovidersSearchParams{"other": "val"}, want: ""},
 		{name: "platform PAPER", params: modprovidersSearchParams{"platform": "PAPER"}, want: "PAPER"},
+		{name: "lower-case platform", params: modprovidersSearchParams{"platform": "velocity"}, want: "VELOCITY"},
 		{name: "non-string platform", params: modprovidersSearchParams{"platform": 42}, want: ""},
 	}
 

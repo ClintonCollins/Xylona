@@ -228,7 +228,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceIDValue string, _ stri
 }
 
 // Download fetches the ZIP for the specified version and writes it to targetDir.
-func (p *Provider) Download(ctx context.Context, sourceIDValue string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
+func (p *Provider) Download(ctx context.Context, sourceIDValue string, versionID string, targetDir string, _ modproviders.SearchParams) ([]modproviders.DownloadedFile, error) {
 	reference, errReference := parseSourceID(sourceIDValue)
 	if errReference != nil {
 		return nil, fmt.Errorf("thunderstore download: %w", errReference)

@@ -479,7 +479,7 @@ func TestDownload_UsesLimitReader(t *testing.T) {
 	p := newTestProvider(srv)
 	targetDir := t.TempDir()
 
-	files, errDownload := p.Download(context.Background(), "test-mod", "v-limited", targetDir)
+	files, errDownload := p.Download(context.Background(), "test-mod", "v-limited", targetDir, nil)
 	if errDownload != nil {
 		t.Fatalf("Download() error = %v, want nil for body under limit", errDownload)
 	}
@@ -525,7 +525,7 @@ func TestDownload_RequiresSHA256Metadata(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	_, errDownload := p.Download(context.Background(), "test-mod", "v-nohash", t.TempDir())
+	_, errDownload := p.Download(context.Background(), "test-mod", "v-nohash", t.TempDir(), nil)
 	if errDownload == nil {
 		t.Fatal("Download() error = nil, want error")
 	}
@@ -568,7 +568,7 @@ func TestDownload_SHA256Mismatch(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	_, errDownload := p.Download(context.Background(), "test-mod", "v-badhash", t.TempDir())
+	_, errDownload := p.Download(context.Background(), "test-mod", "v-badhash", t.TempDir(), nil)
 	if errDownload == nil {
 		t.Fatal("Download() error = nil, want error")
 	}

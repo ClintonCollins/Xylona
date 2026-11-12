@@ -4,6 +4,7 @@ package hangar
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -314,49 +315,31 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, gameVersion
 // Download
 // --------------------------------------------------------------------------
 
-// Download fetches the primary file for the given version and writes it to targetDir.
-// For Hangar, versionID is the version name string (e.g., "7.2.15").
-func (p *Provider) Download(ctx context.Context, sourceID string, versionID string, targetDir string) ([]modproviders.DownloadedFile, error) {
-	author, slug, errSplit := splitSourceID(sourceID)
+// Download fetches the given version's file for the platform in params and writes
+// it to targetDir. For Hangar, versionID is the version name string (e.g., "7.2.15").
+func (p *Provider) Download(ctx context.Context, sourceID string, versionID string, targetDir string, params modproviders.SearchParams) ([]modproviders.DownloadedFile, error) {
+	_, slug, errSplit := splitSourceID(sourceID)
 	if errSplit != nil {
 		return nil, fmt.Errorf("hangar download %q: %w", sourceID, errSplit)
 	}
 
-	versionsEndpoint := fmt.Sprintf("%s/projects/%s/%s/versions", p.baseURL, url.PathEscape(author), url.PathEscape(slug))
-
-	var raw hangarVersionsResponse
-	errFetch := p.getJSON(ctx, versionsEndpoint, &raw)
-	if errFetch != nil {
-		return nil, fmt.Errorf("hangar download — fetch versions for %q: %w", sourceID, errFetch)
+	// The same listing GetVersions returns, so the file matches the version that was offered.
+	versions, errVersions := p.GetVersions(ctx, sourceID, "", params)
+	if errVersions != nil {
+		return nil, fmt.Errorf("hangar download — fetch versions for %q: %w", sourceID, errVersions)
 	}
-
-	var targetVersion *hangarVersion
-	for i := range raw.Result {
-		if raw.Result[i].Name == versionID {
-			targetVersion = &raw.Result[i]
-			break
-		}
-	}
-	if targetVersion == nil {
+	versionIndex := slices.IndexFunc(versions, func(version modproviders.ModVersion) bool {
+		return version.VersionID == versionID
+	})
+	if versionIndex < 0 {
 		return nil, fmt.Errorf("hangar download: version %q not found for %q", versionID, sourceID)
 	}
 
-	var targetDownload hangarPlatformDownload
-	targetDownloadFound := false
-	for _, download := range targetVersion.Downloads {
-		targetDownload = download
-		targetDownloadFound = true
-		break
-	}
-	if !targetDownloadFound {
-		return nil, fmt.Errorf("hangar download: no download URL found for version %q of %q", versionID, sourceID)
-	}
-
-	downloadURL := targetDownload.DownloadURL
+	downloadURL := versions[versionIndex].DownloadURL
 	if downloadURL == "" {
 		return nil, fmt.Errorf("hangar download: no download URL found for version %q of %q", versionID, sourceID)
 	}
-	expectedSHA256 := targetDownload.FileInfo.SHA256
+	expectedSHA256 := versions[versionIndex].FileHashSHA256
 	if expectedSHA256 == "" {
 		return nil, fmt.Errorf("hangar download: missing SHA-256 for version %q of %q: %w", versionID, sourceID, modproviders.ErrMissingIntegrityMetadata)
 	}
@@ -424,25 +407,25 @@ func splitSourceID(sourceID string) (author, slug string, err error) {
 	return parts[0], parts[1], nil
 }
 
-// extractPlatform pulls the platform string from SearchParams["platform"].
+// extractPlatform pulls the platform from SearchParams["platform"] in the
+// upper-case form Hangar uses for its platform keys.
 func extractPlatform(params modproviders.SearchParams) string {
-	return providerhttp.StringParam(params, "platform")
+	return strings.ToUpper(providerhttp.StringParam(params, "platform"))
 }
 
-// primaryDownloadFor returns the download URL and file size for the best available platform.
-// If platform is specified and present, that platform is preferred. Otherwise the first
-// available platform is used.
+// primaryDownloadFor returns the download URL, size and SHA-256 of the file for
+// platform, or empty values when the version has no file for it. Without a
+// platform it prefers PAPER, which the official Minecraft variants use, then the
+// alphabetically first platform, so the choice is the same on every call.
 func primaryDownloadFor(downloads map[string]hangarPlatformDownload, platform string) (downloadURL string, fileSize int64, fileHashSHA256 string) {
-	if platform != "" {
-		if d, ok := downloads[platform]; ok {
-			return d.DownloadURL, d.FileInfo.SizeBytes, d.FileInfo.SHA256
+	if platform == "" {
+		platform = "PAPER"
+		if _, ok := downloads[platform]; !ok && len(downloads) > 0 {
+			platform = slices.Min(slices.Collect(maps.Keys(downloads)))
 		}
 	}
-	// Fall back to first available platform entry.
-	for _, d := range downloads {
-		return d.DownloadURL, d.FileInfo.SizeBytes, d.FileInfo.SHA256
-	}
-	return "", 0, ""
+	d := downloads[platform]
+	return d.DownloadURL, d.FileInfo.SizeBytes, d.FileInfo.SHA256
 }
 
 // collectGameVersions merges all game version arrays from all platforms into a deduplicated slice.

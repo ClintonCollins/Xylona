@@ -225,6 +225,7 @@ func (inst *Instance) tryUpdateMinecraftServerSoftware(gameServer *models.GameSe
 		plan.softwareID,
 		plan.downloadVersionID,
 		gameServer.Directory,
+		nil,
 	)
 	if errDownload != nil {
 		return true, fmt.Errorf("download minecraft update: %w", errDownload)

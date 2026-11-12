@@ -337,7 +337,7 @@ func TestUpdateMovesPin(t *testing.T) {
 			serverDir := t.TempDir()
 			ctx := context.Background()
 
-			mod, errInstall := mgr.Install(ctx, "server-1", mock.ID(), "mod-src-1", "v1", serverDir, "mods")
+			mod, errInstall := mgr.Install(ctx, "server-1", mock.ID(), "mod-src-1", "v1", serverDir, "mods", nil)
 			if errInstall != nil {
 				t.Fatalf("Install() error = %v", errInstall)
 			}
@@ -349,7 +349,7 @@ func TestUpdateMovesPin(t *testing.T) {
 			}
 			mock.downloadedFiles = []modproviders.DownloadedFile{{Path: "testmod-2.0.0.jar", Hash: "def456", Size: 2048, IsPrimary: true}}
 
-			updated, errUpdate := mgr.Update(ctx, mod.ID, "v2", serverDir)
+			updated, errUpdate := mgr.Update(ctx, mod.ID, "v2", serverDir, nil)
 			if errUpdate != nil {
 				t.Fatalf("Update() error = %v", errUpdate)
 			}

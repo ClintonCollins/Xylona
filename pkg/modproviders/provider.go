@@ -125,8 +125,10 @@ type ModProvider interface {
 	// GetVersions lists available versions, filterable by game version.
 	GetVersions(ctx context.Context, sourceID string, gameVersion string, params SearchParams) ([]ModVersion, error)
 
-	// Download fetches the mod file(s) to the target directory.
-	Download(ctx context.Context, sourceID string, versionID string, targetDir string) ([]DownloadedFile, error)
+	// Download fetches the mod file(s) to the target directory. Params are the
+	// same game-defined search params, which pick the file for the server's
+	// platform when a version has one per platform.
+	Download(ctx context.Context, sourceID string, versionID string, targetDir string, params SearchParams) ([]DownloadedFile, error)
 
 	// CheckForUpdate returns the newest compatible version or ErrNoUpdateAvailable.
 	CheckForUpdate(ctx context.Context, sourceID string, gameVersion string) (*ModVersion, error)

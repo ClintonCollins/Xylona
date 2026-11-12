@@ -499,7 +499,7 @@ func (xs *XylonaService) downloadVariantFilesLocal(
 		}
 	}()
 
-	files, errDownload := provider.Download(ctx, resolved.Provider.SourceID, downloadVersionID, stagingDir)
+	files, errDownload := provider.Download(ctx, resolved.Provider.SourceID, downloadVersionID, stagingDir, nil)
 	if errDownload != nil {
 		return nil, fmt.Errorf("download variant files: %w", errDownload)
 	}

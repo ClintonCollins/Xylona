@@ -83,7 +83,7 @@ func TestDownload_WritesMinecraftServerJar(t *testing.T) {
 
 	p := newTestProvider(srv)
 	targetDir := t.TempDir()
-	files, errDownload := p.Download(context.Background(), "vanilla", "1.21.5", targetDir)
+	files, errDownload := p.Download(context.Background(), "vanilla", "1.21.5", targetDir, nil)
 	if errDownload != nil {
 		t.Fatalf("Download() error = %v", errDownload)
 	}
