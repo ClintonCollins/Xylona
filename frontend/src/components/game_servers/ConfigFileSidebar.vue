@@ -39,6 +39,7 @@
               :key="file.path"
               :active="selectedPath === file.path"
               :aria-current="selectedPath === file.path ? 'true' : undefined"
+              :disable="disabled"
               active-class="file-active"
               class="file-item"
               clickable
@@ -93,6 +94,7 @@
           :key="file.path"
           :aria-current="selectedPath === file.path ? 'true' : undefined"
           :aria-label="fileLabel(file)"
+          :disable="disabled"
           :class="{
             'collapsed-active': selectedPath === file.path,
             'collapsed-missing': !file.existsOnDisk,
@@ -123,6 +125,7 @@ const isMobile = computed(() => $q.screen.lt.md)
 const props = defineProps<{
   configFiles: ConfigFileInfo[]
   selectedPath: string
+  disabled?: boolean
 }>()
 
 defineEmits<{
