@@ -254,9 +254,11 @@ function parseCronToBuilder(expr: string): ScheduleBuilder | null {
     }
   }
 
-  // Remaining patterns need numeric minute and hour
-  const m = parseInt(minute, 10)
-  const h = parseInt(hour, 10)
+  // Only single numeric values fit the time selectors. parseInt would silently
+  // truncate lists, ranges and steps, changing an existing schedule on save.
+  if (!/^\d+$/.test(minute) || !/^\d+$/.test(hour)) return null
+  const m = Number(minute)
+  const h = Number(hour)
   if (isNaN(m) || isNaN(h) || m < 0 || m > 59 || h < 0 || h > 23) return null
   if (m % 5 !== 0) return null // can't represent in 5-minute-step selects
 
@@ -267,7 +269,8 @@ function parseCronToBuilder(expr: string): ScheduleBuilder | null {
 
   // Pattern: {M} {H} * * {dow_list} → weekly
   if (dom === '*' && dow !== '*') {
-    const days = dow.split(',').map((d) => parseInt(d, 10))
+    if (!/^\d+(,\d+)*$/.test(dow)) return null
+    const days = dow.split(',').map(Number)
     if (days.some((d) => isNaN(d) || d < 0 || d > 6)) return null
     return {
       ...defaultBuilder(),
@@ -280,7 +283,8 @@ function parseCronToBuilder(expr: string): ScheduleBuilder | null {
 
   // Pattern: {M} {H} {D} * * → monthly
   if (dow === '*') {
-    const d = parseInt(dom, 10)
+    if (!/^\d+$/.test(dom)) return null
+    const d = Number(dom)
     if (isNaN(d) || d < 1 || d > 28) return null
     return {
       ...defaultBuilder(),

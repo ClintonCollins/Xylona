@@ -1,5 +1,5 @@
 import { create } from '@bufbuild/protobuf'
-import { mount } from '@vue/test-utils'
+import { mount, shallowMount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -14,10 +14,12 @@ vi.mock('quasar', async () => {
   }
 })
 
+const updateScheduledTask = vi.hoisted(() => vi.fn().mockResolvedValue({}))
+
 vi.mock('@/utils/shared', () => ({
   GetXylonaClient: () => ({
     createScheduledTask: vi.fn(),
-    updateScheduledTask: vi.fn(),
+    updateScheduledTask,
   }),
   ConnectErrorToString: (err: unknown) => String(err),
 }))
@@ -239,4 +241,103 @@ describe('ScheduledTaskForm', () => {
       expect(vm.builder.frequency).toBe('daily')
     })
   })
+})
+
+describe('scheduled task cron preservation', () => {
+  const advancedSchedules = [
+    '0,30 3 * * *',
+    '0 3,15 * * *',
+    '0 3 1,15 * *',
+    '0 3 * * 1-5',
+    '0-30/10 3 * * *',
+    '0 3/6 * * *',
+    '0 3 1-15/2 * *',
+    '0 3 * * 1-5/2',
+  ]
+
+  async function openExistingSchedule(cronExpression: string) {
+    const wrapper = shallowMount(ScheduledTaskForm, {
+      props: {
+        showDialog: false,
+        gameServerId: 'server-1',
+        existingTask: create(ScheduledTaskSchema, {
+          id: 'task-1',
+          name: 'Scheduled backup',
+          taskType: 'backup',
+          cronExpression,
+          timezone: 'UTC',
+          enabled: true,
+        }),
+      },
+      global: {
+        renderStubDefaultSlot: true,
+        stubs: {
+          QInput: { template: '<input />' },
+          QSelect: QSelectStub,
+        },
+      },
+    })
+    await wrapper.setProps({ showDialog: true })
+    const vm = wrapper.vm as unknown as {
+      form: { name: string; cronExpression: string }
+      activeCron: string
+      useAdvancedCron: boolean
+      toggleAdvancedCron: () => void
+      handleSubmit: () => Promise<void>
+    }
+    return { wrapper, vm }
+  }
+
+  it.each(advancedSchedules)('preserves %s when only the schedule name is edited', async (cron) => {
+    const { wrapper, vm } = await openExistingSchedule(cron)
+
+    expect(vm.useAdvancedCron).toBe(true)
+    expect(vm.activeCron).toBe(cron)
+    vm.form.name = 'Renamed backup'
+    await vm.handleSubmit()
+
+    expect(updateScheduledTask).toHaveBeenLastCalledWith(
+      expect.objectContaining({ name: 'Renamed backup', cronExpression: cron }),
+    )
+    wrapper.unmount()
+  })
+
+  it.each(advancedSchedules)(
+    'keeps %s intact when the visual builder cannot represent it',
+    async (cron) => {
+      const { wrapper, vm } = await openExistingSchedule('0 3 * * *')
+      vm.toggleAdvancedCron()
+      vm.form.cronExpression = cron
+
+      // A rejected switch can be retried without rewriting or resetting the expression.
+      vm.toggleAdvancedCron()
+      vm.toggleAdvancedCron()
+      expect(vm.useAdvancedCron).toBe(true)
+      expect(vm.activeCron).toBe(cron)
+      expect(vm.form.cronExpression).toBe(cron)
+
+      await wrapper.setProps({ showDialog: false })
+      expect(wrapper.emitted('submit')).toBeUndefined()
+      await wrapper.setProps({ showDialog: true })
+      expect(vm.useAdvancedCron).toBe(false)
+      expect(vm.activeCron).toBe('0 3 * * *')
+      wrapper.unmount()
+    },
+  )
+
+  it.each(['*/15 * * * *', '0 */6 * * *', '30 3 * * *', '0 3 * * 1,3,5', '0 3 15 * *'])(
+    'still round-trips representable schedule %s through the visual builder',
+    async (cron) => {
+      const { wrapper, vm } = await openExistingSchedule(cron)
+      expect(vm.useAdvancedCron).toBe(false)
+      expect(vm.activeCron).toBe(cron)
+      vm.toggleAdvancedCron()
+      vm.toggleAdvancedCron()
+      await vm.handleSubmit()
+      expect(updateScheduledTask).toHaveBeenLastCalledWith(
+        expect.objectContaining({ cronExpression: cron }),
+      )
+      wrapper.unmount()
+    },
+  )
 })
