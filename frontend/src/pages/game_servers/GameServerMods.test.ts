@@ -2,7 +2,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { UpdateProviderKind } from '@/proto/shared_pb'
+import { create } from '@bufbuild/protobuf'
+import { InstalledModSchema, UpdateProviderKind } from '@/proto/shared_pb'
 import {
   SevenDaysToDieWebAPIConnectionState,
   SevenDaysToDieWebAPIValueState,
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   listInstalledMods: vi.fn(),
   getModVersions: vi.fn(),
   installMod: vi.fn(),
+  updateMod: vi.fn(),
 }))
 
 vi.mock('@/utils/shared', () => ({
@@ -26,6 +28,7 @@ vi.mock('@/utils/shared', () => ({
     listInstalledMods: mocks.listInstalledMods,
     getModVersions: mocks.getModVersions,
     installMod: mocks.installMod,
+    updateMod: mocks.updateMod,
   }),
 }))
 
@@ -98,6 +101,8 @@ describe('GameServerMods reported mods', () => {
   beforeEach(() => {
     mocks.getModVersions.mockReset()
     mocks.installMod.mockReset()
+    mocks.updateMod.mockReset()
+    mocks.updateMod.mockResolvedValue({})
     mocks.getGameServer.mockReset()
     mocks.getReportedMods.mockReset()
     mocks.getUpdateTargets.mockReset()
@@ -105,6 +110,71 @@ describe('GameServerMods reported mods', () => {
     mocks.listInstalledMods.mockResolvedValue({ installedMods: [] })
     mocks.getGameServer.mockResolvedValue({ gameServer: { gameId: '7_days_to_die' } })
     mocks.getReportedMods.mockResolvedValue(reportedModsResponse)
+  })
+
+  it('bulk updates only enabled, unpinned mods with an available update', async () => {
+    mocks.listInstalledMods.mockResolvedValue({
+      installedMods: [
+        create(InstalledModSchema, {
+          id: 'pinned',
+          enabled: true,
+          updateAvailable: true,
+          pinnedVersion: '1.0',
+        }),
+        create(InstalledModSchema, { id: 'eligible', enabled: true, updateAvailable: true }),
+        create(InstalledModSchema, { id: 'disabled', enabled: false, updateAvailable: true }),
+        create(InstalledModSchema, { id: 'current', enabled: true, updateAvailable: false }),
+      ],
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    wrapper.getComponent(InstalledModsTableStub).vm.$emit('update-all')
+    await flushPromises()
+
+    expect(mocks.updateMod).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        gameServerId: 'server-1',
+        installedModId: 'eligible',
+        versionId: '',
+      }),
+    )
+    expect(mocks.listInstalledMods).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('does not bulk update an all-pinned list, but permits a deliberate per-mod update', async () => {
+    mocks.listInstalledMods.mockResolvedValue({
+      installedMods: [
+        create(InstalledModSchema, {
+          id: 'pinned',
+          enabled: true,
+          updateAvailable: true,
+          pinnedVersion: '1.0',
+        }),
+      ],
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+    const table = wrapper.getComponent(InstalledModsTableStub)
+
+    table.vm.$emit('update-all')
+    await flushPromises()
+    table.vm.$emit('update-all')
+    await flushPromises()
+    expect(mocks.updateMod).not.toHaveBeenCalled()
+    expect(mocks.listInstalledMods).toHaveBeenCalledOnce()
+
+    table.vm.$emit('update', 'pinned')
+    await flushPromises()
+    expect(mocks.updateMod).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        gameServerId: 'server-1',
+        installedModId: 'pinned',
+        versionId: '',
+      }),
+    )
+    wrapper.unmount()
   })
 
   it('lets Valheim browse Thunderstore and install a selected mod', async () => {

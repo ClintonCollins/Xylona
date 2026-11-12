@@ -254,7 +254,9 @@ const filteredMods = computed((): InstalledMod[] => {
 })
 
 const updatesAvailable = computed((): number => {
-  return props.installedMods.filter((mod) => mod.updateAvailable && mod.enabled).length
+  return props.installedMods.filter(
+    (mod) => mod.updateAvailable && mod.enabled && mod.pinnedVersion === '',
+  ).length
 })
 
 function isPinned(mod: InstalledMod): boolean {

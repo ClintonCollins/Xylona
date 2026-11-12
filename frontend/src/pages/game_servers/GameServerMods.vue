@@ -362,7 +362,9 @@ async function handlePinVersion(modId: string): Promise<void> {
 }
 
 async function handleUpdateAll(): Promise<void> {
-  const modsToUpdate = installedMods.value.filter((mod) => mod.updateAvailable && mod.enabled)
+  const modsToUpdate = installedMods.value.filter(
+    (mod) => mod.updateAvailable && mod.enabled && mod.pinnedVersion === '',
+  )
   if (modsToUpdate.length === 0) return
 
   let successCount = 0
