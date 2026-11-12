@@ -733,7 +733,7 @@ describe('GameServerStartArgs', () => {
   )
 
   it.each(['query', 'confirmation', 'save'] as const)(
-    'does not continue a pending restart after leaving during %s',
+    'after leaving during %s, finishes and reports only a restart whose save was sent',
     async (stage) => {
       mocks.getGameServer.mockResolvedValue(
         create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.ONLINE) }),
@@ -769,10 +769,47 @@ describe('GameServerStartArgs', () => {
       )
       await restarting
       expect(mocks.updateGameServerStartArgs).toHaveBeenCalledTimes(Number(stage === 'save'))
-      expect(mocks.restartGameServer).not.toHaveBeenCalled()
-      expect(mocks.notify).not.toHaveBeenCalled()
+      expect(mocks.restartGameServer).toHaveBeenCalledTimes(Number(stage === 'save'))
+      if (stage === 'save') {
+        expect(mocks.notify).toHaveBeenCalledWith('Start command saved and server restarted.')
+      } else {
+        expect(mocks.notify).not.toHaveBeenCalled()
+      }
     },
   )
+
+  it('lets the operator leave during the restart and still reports its failure', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.ONLINE) }),
+    )
+    mocks.queryGameServer.mockResolvedValue(queryWithPlayers(0))
+    mocks.updateGameServerStartArgs.mockResolvedValue(
+      create(UpdateGameServerStartArgsResponseSchema, {
+        gameServer: buildGameServer(Status.ONLINE, './submitted.sh'),
+      }),
+    )
+    const restart = deferred<unknown>()
+    mocks.restartGameServer.mockReturnValue(restart.promise)
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as StartArgsViewModel
+    viewModel.draftBaseCommandOverride = './submitted.sh'
+    const restarting = viewModel.saveAndRestart()
+    await flushPromises()
+    expect(mocks.restartGameServer).toHaveBeenCalledTimes(1)
+    expect(viewModel.isDirty).toBe(false)
+    expect(await mocks.leaveGuard?.()).toBe(true)
+
+    wrapper.unmount()
+    const error = new Error('server did not start')
+    restart.reject(error)
+    await restarting
+    expect(mocks.notify).toHaveBeenCalledWith(
+      error,
+      'Start command was saved, but the server could not restart',
+      expect.anything(),
+    )
+  })
 
   it('keeps restart disabled while live status is stale or unknown', async () => {
     mocks.getGameServer.mockResolvedValue(

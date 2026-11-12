@@ -179,6 +179,8 @@ const loadError = ref('')
 const saving = ref(false)
 const restarting = ref(false)
 const busy = computed(() => saving.value || restarting.value)
+// Only the save request itself; the restart that may follow has no draft to lose.
+const submitting = ref(false)
 let unmounted = false
 const serverStatusFresh = ref(false)
 const isSuperUser = ref(false)
@@ -328,7 +330,7 @@ const resolvedTokenCount = computed(() =>
 )
 
 const isDirty = computed(() => draftChangeCount.value > 0)
-useUnsavedChangesGuard(() => isDirty.value || busy.value)
+useUnsavedChangesGuard(() => isDirty.value || submitting.value)
 const protectedBlockIDs = computed(
   () =>
     new Set(
@@ -489,14 +491,15 @@ async function saveAndRestart() {
   restarting.value = true
   try {
     const playerCount = await onlinePlayerCount()
-    if (unmounted || !restartStateAuthoritative.value) return
+    if (unmounted) return
     const confirmed = await askLifecycleConfirmation(
       $q,
       buildLifecycleConfirmation('restart', [
         { displayName: gameServer.value.name || 'this server', playerCount },
       ]),
     )
-    if (confirmed && !unmounted && restartStateAuthoritative.value) {
+    // If the server stopped meanwhile, the backend rejects the restart and the error is shown.
+    if (confirmed && !unmounted) {
       await savePatches(true)
     }
   } finally {
@@ -532,15 +535,21 @@ async function savePatches(restartAfterSave: boolean) {
   const submittedBaseCommandOverride = draftBaseCommandOverride.value
 
   let startArgsSaved = false
+  submitting.value = true
   try {
-    const response = await GetXylonaClient().updateGameServerStartArgs(
-      create(UpdateGameServerStartArgsRequestSchema, {
-        serverId: gameServerId.value,
-        startArgsPatches: submittedPatchesJson,
-        baseCommandOverride: submittedBaseCommandOverride,
-      }),
-    )
-    if (unmounted) return
+    const response = await GetXylonaClient()
+      .updateGameServerStartArgs(
+        create(UpdateGameServerStartArgsRequestSchema, {
+          serverId: gameServerId.value,
+          startArgsPatches: submittedPatchesJson,
+          baseCommandOverride: submittedBaseCommandOverride,
+        }),
+      )
+      .finally(() => {
+        submitting.value = false
+      })
+    // Results are reported even after leaving the page: the toasts are global and
+    // a confirmed restart still runs.
     const patchesUnchanged = serializeStartArgsPatches(draftPatches.value) === submittedPatchesJson
     const baseCommandUnchanged = draftBaseCommandOverride.value === submittedBaseCommandOverride
     const runtimeStatus = gameServer.value.status
@@ -562,10 +571,9 @@ async function savePatches(restartAfterSave: boolean) {
       await GetXylonaClient().restartGameServer(
         create(RestartGameServerRequestSchema, { serverId: gameServerId.value }),
       )
-      if (unmounted) return
       notifySuccess(
         isDirty.value
-          ? 'Submitted start command saved and server restarted. Newer edits are still unsaved.'
+          ? 'Start command saved and server restarted. Newer edits are still unsaved.'
           : 'Start command saved and server restarted.',
       )
       return
@@ -577,7 +585,6 @@ async function savePatches(restartAfterSave: boolean) {
         : 'Start command saved successfully.',
     )
   } catch (unknownError: unknown) {
-    if (unmounted) return
     notifyConnectError(
       unknownError,
       startArgsSaved
