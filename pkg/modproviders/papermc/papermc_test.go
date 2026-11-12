@@ -333,7 +333,7 @@ func TestDownload_WritesFile(t *testing.T) {
 	p := newTestProvider(srv)
 	tmpDir := t.TempDir()
 
-	files, errDownload := p.Download(context.Background(), "paper", "1.21.4-100", tmpDir)
+	files, errDownload := p.Download(context.Background(), "paper", "1.21.4-100", tmpDir, nil)
 	if errDownload != nil {
 		t.Fatalf("Download() error = %v", errDownload)
 	}
@@ -396,7 +396,7 @@ func TestDownload_RequiresSHA256Metadata(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	_, errDownload := p.Download(context.Background(), "paper", "1.21.4-100", t.TempDir())
+	_, errDownload := p.Download(context.Background(), "paper", "1.21.4-100", t.TempDir(), nil)
 	if errDownload == nil {
 		t.Fatal("Download() error = nil, want non-nil when SHA-256 metadata is missing")
 	}
@@ -407,7 +407,7 @@ func TestDownload_RequiresSHA256Metadata(t *testing.T) {
 
 func TestDownload_InvalidVersionID(t *testing.T) {
 	p := New()
-	_, errDownload := p.Download(context.Background(), "paper", "nohyphen", t.TempDir())
+	_, errDownload := p.Download(context.Background(), "paper", "nohyphen", t.TempDir(), nil)
 	if errDownload == nil {
 		t.Fatal("Download() error = nil, want non-nil for invalid versionID")
 	}
@@ -421,7 +421,7 @@ func TestDownload_BuildNotFound(t *testing.T) {
 
 	p := newTestProvider(srv)
 	// Build 999 doesn't exist in the fixture.
-	_, errDownload := p.Download(context.Background(), "paper", "1.21.4-999", t.TempDir())
+	_, errDownload := p.Download(context.Background(), "paper", "1.21.4-999", t.TempDir(), nil)
 	if errDownload == nil {
 		t.Fatal("Download() error = nil, want non-nil when build not found")
 	}
@@ -455,7 +455,7 @@ func TestDownload_SHA256Mismatch(t *testing.T) {
 	defer srv.Close()
 
 	p := newTestProvider(srv)
-	_, errDownload := p.Download(context.Background(), "paper", "1.21.4-100", t.TempDir())
+	_, errDownload := p.Download(context.Background(), "paper", "1.21.4-100", t.TempDir(), nil)
 	if errDownload == nil {
 		t.Fatal("Download() error = nil, want non-nil on SHA-256 mismatch")
 	}

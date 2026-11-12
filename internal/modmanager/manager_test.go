@@ -34,6 +34,10 @@ type mockProvider struct {
 	downloadErr           error
 	versionsErr           error
 
+	// Params of the last GetModDetails and Download calls.
+	detailsParams  modproviders.SearchParams
+	downloadParams modproviders.SearchParams
+
 	versionRequestsMu sync.Mutex
 	versionRequests   []versionRequest
 }
@@ -62,7 +66,8 @@ func (m *mockProvider) Search(_ context.Context, _ string, _ modproviders.Search
 	}, m.searchErr
 }
 
-func (m *mockProvider) GetModDetails(_ context.Context, _ string, _ modproviders.SearchParams) (*modproviders.ModDetails, error) {
+func (m *mockProvider) GetModDetails(_ context.Context, _ string, params modproviders.SearchParams) (*modproviders.ModDetails, error) {
+	m.detailsParams = params
 	return m.details, m.detailsErr
 }
 
@@ -73,7 +78,8 @@ func (m *mockProvider) GetVersions(_ context.Context, _ string, gameVersion stri
 	return m.versions, m.versionsErr
 }
 
-func (m *mockProvider) Download(_ context.Context, _ string, _ string, targetDir string) ([]modproviders.DownloadedFile, error) {
+func (m *mockProvider) Download(_ context.Context, _ string, _ string, targetDir string, params modproviders.SearchParams) ([]modproviders.DownloadedFile, error) {
+	m.downloadParams = params
 	if m.downloadErr != nil {
 		return nil, m.downloadErr
 	}
@@ -304,7 +310,7 @@ func TestRemoteModDownloadRejectsMissingIntegrityMetadata(t *testing.T) {
 
 		mgr := New(conn)
 		client := &fakeModFileClient{}
-		_, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", t.TempDir(), "mods")
+		_, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", t.TempDir(), "mods", nil)
 		if !errors.Is(errInstall, modproviders.ErrMissingIntegrityMetadata) {
 			t.Fatalf("InstallRemote() error = %v, want %v", errInstall, modproviders.ErrMissingIntegrityMetadata)
 		}
@@ -326,14 +332,14 @@ func TestRemoteModDownloadRejectsMissingIntegrityMetadata(t *testing.T) {
 			DownloadFileFromURLResult: node.DownloadFileResult{RelativePath: "mods/.xylona-download-install/testmod-1.0.0.jar", BytesWritten: 1024, SHA256: "sha-v1"},
 			RenameFileResult:          "mods/testmod-1.0.0.jar",
 		}
-		mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", t.TempDir(), "mods")
+		mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", t.TempDir(), "mods", nil)
 		if errInstall != nil {
 			t.Fatalf("InstallRemote() error = %v", errInstall)
 		}
 
 		clearVersionIntegrity(&mock.details.Versions[1])
 		resetFakeModFileClientCalls(client)
-		_, errUpdate := mgr.UpdateRemote(context.Background(), client, mod.ID, "v2", t.TempDir())
+		_, errUpdate := mgr.UpdateRemote(context.Background(), client, mod.ID, "v2", t.TempDir(), nil)
 		if !errors.Is(errUpdate, modproviders.ErrMissingIntegrityMetadata) {
 			t.Fatalf("UpdateRemote() error = %v, want %v", errUpdate, modproviders.ErrMissingIntegrityMetadata)
 		}
@@ -362,7 +368,7 @@ func TestRemoteModInstallUsesNodeDownloadAndStoresSlashPaths(t *testing.T) {
 		RenameFileResult:          "mods/testmod-1.0.0.jar",
 	}
 
-	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("InstallRemote() error = %v", errInstall)
 	}
@@ -440,16 +446,24 @@ func TestRemoteModUpdateUsesNodeRollbackAndStoresSlashPaths(t *testing.T) {
 		RenameFileResult:          "mods/testmod-1.0.0.jar",
 	}
 
-	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	params := modproviders.SearchParams{"platform": "PAPER"}
+	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods", params)
 	if errInstall != nil {
 		t.Fatalf("InstallRemote() error = %v", errInstall)
 	}
+	if mock.detailsParams["platform"] != "PAPER" {
+		t.Fatalf("InstallRemote() planned with params %v, want %v", mock.detailsParams, params)
+	}
+	mock.detailsParams = nil
 	resetFakeModFileClientCalls(client)
 	client.DownloadFileFromURLResult = node.DownloadFileResult{RelativePath: "mods/.xylona-download-update/testmod-2.0.0.jar", BytesWritten: 2048, SHA256: "sha-v2"}
 
-	updated, errUpdate := mgr.UpdateRemote(context.Background(), client, mod.ID, "v2", serverDir)
+	updated, errUpdate := mgr.UpdateRemote(context.Background(), client, mod.ID, "v2", serverDir, params)
 	if errUpdate != nil {
 		t.Fatalf("UpdateRemote() error = %v", errUpdate)
+	}
+	if mock.detailsParams["platform"] != "PAPER" {
+		t.Fatalf("UpdateRemote() planned with params %v, want %v", mock.detailsParams, params)
 	}
 	if updated.InstalledVersionID != "v2" {
 		t.Fatalf("UpdateRemote().InstalledVersionID = %q, want %q", updated.InstalledVersionID, "v2")
@@ -518,7 +532,7 @@ func TestRemoteModUninstallDeletesOnNode(t *testing.T) {
 		RenameFileResult:          "mods/testmod-1.0.0.jar",
 	}
 
-	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("InstallRemote() error = %v", errInstall)
 	}
@@ -566,7 +580,7 @@ func TestRemoteModEnableDisableMovesOnNode(t *testing.T) {
 		RenameFileResult:          "mods/testmod-1.0.0.jar",
 	}
 
-	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("InstallRemote() error = %v", errInstall)
 	}
@@ -639,7 +653,7 @@ func TestRemoteModAutoUpdateUsesNodeDownload(t *testing.T) {
 		RenameFileResult:          "mods/testmod-1.0.0.jar",
 	}
 
-	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.InstallRemote(context.Background(), client, "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("InstallRemote() error = %v", errInstall)
 	}
@@ -693,7 +707,7 @@ func TestInstall(t *testing.T) {
 	mgr := New(conn)
 	serverDir := t.TempDir()
 
-	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("Install() error = %v", errInstall)
 	}
@@ -738,7 +752,7 @@ func TestInstallProviderNotFound(t *testing.T) {
 	conn := dbtest.NewMigratedConnection(t, "mm-install-noprovider.sqlite")
 	mgr := New(conn)
 
-	_, errInstall := mgr.Install(context.Background(), "server-1", "nonexistent-provider", "src", "v1", "/tmp", "mods")
+	_, errInstall := mgr.Install(context.Background(), "server-1", "nonexistent-provider", "src", "v1", "/tmp", "mods", nil)
 	if errInstall == nil {
 		t.Fatal("Install() expected error for unknown provider")
 	}
@@ -760,7 +774,7 @@ func TestInstallIntegrityFailureDoesNotWriteLiveFiles(t *testing.T) {
 	mgr := New(conn)
 	serverDir := t.TempDir()
 
-	_, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	_, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if !errors.Is(errInstall, modproviders.ErrIntegrityMismatch) {
 		t.Fatalf("Install() error = %v, want %v", errInstall, modproviders.ErrIntegrityMismatch)
 	}
@@ -795,7 +809,7 @@ func TestUninstall(t *testing.T) {
 	mgr := New(conn)
 	serverDir := t.TempDir()
 
-	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("Install() error = %v", errInstall)
 	}
@@ -843,19 +857,27 @@ func TestUpdate(t *testing.T) {
 	mgr := New(conn)
 	serverDir := t.TempDir()
 
-	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	params := modproviders.SearchParams{"platform": "PAPER"}
+	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods", params)
 	if errInstall != nil {
 		t.Fatalf("Install() error = %v", errInstall)
 	}
+	if mock.downloadParams["platform"] != "PAPER" {
+		t.Fatalf("Install() downloaded with params %v, want %v", mock.downloadParams, params)
+	}
+	mock.downloadParams = nil
 
 	// Change what the provider returns for v2 download.
 	mock.downloadedFiles = []modproviders.DownloadedFile{
 		{Path: "testmod-2.0.0.jar", Hash: "def456", Size: 2048, IsPrimary: true},
 	}
 
-	updated, errUpdate := mgr.Update(context.Background(), mod.ID, "v2", serverDir)
+	updated, errUpdate := mgr.Update(context.Background(), mod.ID, "v2", serverDir, params)
 	if errUpdate != nil {
 		t.Fatalf("Update() error = %v", errUpdate)
+	}
+	if mock.downloadParams["platform"] != "PAPER" {
+		t.Fatalf("Update() downloaded with params %v, want %v", mock.downloadParams, params)
 	}
 	if updated.InstalledVersion != "2.0.0" {
 		t.Errorf("Update().InstalledVersion = %q, want %q", updated.InstalledVersion, "2.0.0")
@@ -897,7 +919,7 @@ func TestUpdateIntegrityFailureKeepsExistingFilesAndMetadata(t *testing.T) {
 	mgr := New(conn)
 	serverDir := t.TempDir()
 
-	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("Install() error = %v", errInstall)
 	}
@@ -907,7 +929,7 @@ func TestUpdateIntegrityFailureKeepsExistingFilesAndMetadata(t *testing.T) {
 	}
 	mock.downloadErrAfterWrite = modproviders.ErrIntegrityMismatch
 
-	_, errUpdate := mgr.Update(context.Background(), mod.ID, "v2", serverDir)
+	_, errUpdate := mgr.Update(context.Background(), mod.ID, "v2", serverDir, nil)
 	if !errors.Is(errUpdate, modproviders.ErrIntegrityMismatch) {
 		t.Fatalf("Update() error = %v, want %v", errUpdate, modproviders.ErrIntegrityMismatch)
 	}
@@ -1073,7 +1095,7 @@ func TestEnableDisable(t *testing.T) {
 	mgr := New(conn)
 	serverDir := t.TempDir()
 
-	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("Install() error = %v", errInstall)
 	}
@@ -1151,7 +1173,7 @@ func TestRunAutoUpdates(t *testing.T) {
 	serverDir := t.TempDir()
 
 	// Install a mod.
-	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("Install() error = %v", errInstall)
 	}
@@ -1173,13 +1195,18 @@ func TestRunAutoUpdates(t *testing.T) {
 		messages = append(messages, msg)
 	}
 
-	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", profileScope(pid), serverDir, statusFn)
+	scope := profileScope(pid)
+	scope.Params[pid] = modproviders.SearchParams{"platform": "PAPER"}
+	errAuto := mgr.RunAutoUpdates(context.Background(), "server-1", scope, serverDir, statusFn)
 	if errAuto != nil {
 		t.Fatalf("RunAutoUpdates() error = %v", errAuto)
 	}
 
 	if len(messages) == 0 {
 		t.Error("RunAutoUpdates() expected status messages, got none")
+	}
+	if mock.downloadParams["platform"] != "PAPER" {
+		t.Errorf("RunAutoUpdates() downloaded with params %v, want the profile source params", mock.downloadParams)
 	}
 
 	// Verify mod was updated.
@@ -1212,7 +1239,7 @@ func TestRunAutoUpdatesSkipsPinned(t *testing.T) {
 	serverDir := t.TempDir()
 
 	// Install mod and pin it.
-	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("Install() error = %v", errInstall)
 	}
@@ -1259,7 +1286,7 @@ func TestRunAutoUpdatesContinuesOnFailure(t *testing.T) {
 	mgr := New(conn)
 	serverDir := t.TempDir()
 
-	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods")
+	mod, errInstall := mgr.Install(context.Background(), "server-1", pid, "mod-src-1", "v1", serverDir, "mods", nil)
 	if errInstall != nil {
 		t.Fatalf("Install() error = %v", errInstall)
 	}

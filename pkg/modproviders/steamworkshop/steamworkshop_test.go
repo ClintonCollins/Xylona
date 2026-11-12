@@ -316,7 +316,7 @@ func TestCheckForUpdate_HTTPError_ReturnsError(t *testing.T) {
 func TestDownload_WithoutSteamCMDPath_ReturnsError(t *testing.T) {
 	p := New()
 	tmpDir := t.TempDir()
-	_, errDownload := p.Download(context.Background(), "2128699613", "", tmpDir)
+	_, errDownload := p.Download(context.Background(), "2128699613", "", tmpDir, nil)
 	if errDownload == nil {
 		t.Fatal("Download() error = nil, want non-nil when steamcmd path is not set")
 	}

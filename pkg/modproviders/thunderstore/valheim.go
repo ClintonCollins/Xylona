@@ -41,7 +41,7 @@ func (p *Provider) DownloadValheim(ctx context.Context, sourceID, versionID, tar
 		return nil, fmt.Errorf("extract Valheim package: %w", errTemp)
 	}
 	defer func() { errResult = errors.Join(errResult, os.RemoveAll(archiveDir)) }()
-	downloaded, errDownload := p.Download(ctx, sourceID, versionID, archiveDir)
+	downloaded, errDownload := p.Download(ctx, sourceID, versionID, archiveDir, nil)
 	if errDownload != nil {
 		return nil, errDownload
 	}

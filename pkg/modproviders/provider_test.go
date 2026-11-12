@@ -35,7 +35,7 @@ func (m *mockProvider) GetVersions(_ context.Context, _ string, _ string, _ Sear
 	}, nil
 }
 
-func (m *mockProvider) Download(_ context.Context, _ string, _ string, _ string) ([]DownloadedFile, error) {
+func (m *mockProvider) Download(_ context.Context, _ string, _ string, _ string, _ SearchParams) ([]DownloadedFile, error) {
 	return []DownloadedFile{
 		{Path: "mods/test.jar", Hash: "abc123", Size: 1024, IsPrimary: true},
 	}, nil

@@ -227,7 +227,7 @@ func (p *Provider) GetVersions(ctx context.Context, sourceID string, _ string, _
 
 // Download uses SteamCMD to download the Workshop item and copies the files to targetDir.
 // steamCMDPath must be set via SetSteamCMDPath before calling this method.
-func (p *Provider) Download(ctx context.Context, sourceID string, _ string, targetDir string) ([]modproviders.DownloadedFile, error) {
+func (p *Provider) Download(ctx context.Context, sourceID string, _ string, targetDir string, _ modproviders.SearchParams) ([]modproviders.DownloadedFile, error) {
 	if p.steamCMDPath == "" {
 		return nil, errors.New("steam workshop download requires steamcmd: set the steamcmd path via SetSteamCMDPath")
 	}

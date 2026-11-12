@@ -46,7 +46,7 @@ func (p *rpcMockModProvider) GetVersions(_ context.Context, _ string, _ string, 
 	return p.details.Versions, nil
 }
 
-func (p *rpcMockModProvider) Download(_ context.Context, _ string, versionID string, destDir string) ([]modproviders.DownloadedFile, error) {
+func (p *rpcMockModProvider) Download(_ context.Context, _ string, versionID string, destDir string, _ modproviders.SearchParams) ([]modproviders.DownloadedFile, error) {
 	if !p.localDownloads {
 		return nil, errors.New("controller-side provider download should not be called for remote mod RPCs")
 	}

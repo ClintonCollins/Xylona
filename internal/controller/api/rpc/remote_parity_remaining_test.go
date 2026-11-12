@@ -848,7 +848,7 @@ func (p *remoteVariantProvider) GetVersions(_ context.Context, _ string, gameVer
 	}, nil
 }
 
-func (p *remoteVariantProvider) Download(_ context.Context, _ string, _ string, targetDir string) ([]modproviders.DownloadedFile, error) {
+func (p *remoteVariantProvider) Download(_ context.Context, _ string, _ string, targetDir string, _ modproviders.SearchParams) ([]modproviders.DownloadedFile, error) {
 	p.downloadTargetDir = targetDir
 	if targetDir == p.remoteDirectory {
 		return nil, errors.New("provider download must not target the remote server directory")

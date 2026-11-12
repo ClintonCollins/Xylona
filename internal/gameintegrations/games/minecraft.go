@@ -38,7 +38,7 @@ func downloadLatestMinecraftServerJar(gameServer *models.GameServer, stdOutWrite
 		return errors.New("get latest minecraft server URL: no release available")
 	}
 	_, _ = stdOutWriter.Write([]byte("Downloading latest server\n"))
-	_, errDownload := provider.Download(ctx, "", latest.VersionID, gameServer.Directory)
+	_, errDownload := provider.Download(ctx, "", latest.VersionID, gameServer.Directory, nil)
 	if errDownload != nil {
 		log.Error().Err(errDownload).Msg("Failed to get latest server")
 		return fmt.Errorf("download latest minecraft server: %w", errDownload)

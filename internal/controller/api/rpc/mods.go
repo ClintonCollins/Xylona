@@ -410,10 +410,16 @@ func (xs *XylonaService) InstallMod(
 		return nil, errStopped
 	}
 
+	scope, errScope := modmanager.NewUpdateScope(info.game, info.gameServer)
+	if errScope != nil {
+		log.Error().Err(errScope).Str("game_server_id", info.gameServer.ID).Msg("Failed to resolve mod update scope")
+		return nil, internalErrf("failed to resolve server configuration")
+	}
+
 	// An empty version ID asks for the latest version the server can use.
 	versionID := request.Msg.GetVersionId()
 	if versionID == "" {
-		latestID, errLatest := xs.latestModVersionID(ctx, info.gameServer, &models.InstalledMod{
+		latestID, errLatest := xs.latestModVersionID(ctx, scope, &models.InstalledMod{
 			Source:   request.Msg.GetSource(),
 			SourceID: request.Msg.GetSourceId(),
 		})
@@ -440,6 +446,7 @@ func (xs *XylonaService) InstallMod(
 			versionID,
 			info.gameServer.Directory,
 			installPath,
+			scope.Params[request.Msg.GetSource()],
 		)
 	} else {
 		mod, errInstall = xs.modManager.Install(
@@ -450,6 +457,7 @@ func (xs *XylonaService) InstallMod(
 			versionID,
 			info.gameServer.Directory,
 			installPath,
+			scope.Params[request.Msg.GetSource()],
 		)
 	}
 	if errInstall != nil {
@@ -540,10 +548,16 @@ func (xs *XylonaService) UpdateMod(
 		return nil, errStopped
 	}
 
+	scope, errScope := modmanager.NewUpdateScope(gameServer.R.Game, gameServer)
+	if errScope != nil {
+		log.Error().Err(errScope).Str("game_server_id", gameServer.ID).Msg("Failed to resolve mod update scope")
+		return nil, internalErrf("failed to resolve server configuration")
+	}
+
 	// An empty version ID asks for the latest version the server can use.
 	versionID := request.Msg.GetVersionId()
 	if versionID == "" {
-		latestID, errLatest := xs.latestModVersionID(ctx, gameServer, mod)
+		latestID, errLatest := xs.latestModVersionID(ctx, scope, mod)
 		if errLatest != nil {
 			return nil, errLatest
 		}
@@ -558,9 +572,9 @@ func (xs *XylonaService) UpdateMod(
 	var updated *models.InstalledMod
 	var errUpdate error
 	if isRemote {
-		updated, errUpdate = xs.modManager.UpdateRemote(ctx, remoteClient, mod.ID, versionID, gameServer.Directory)
+		updated, errUpdate = xs.modManager.UpdateRemote(ctx, remoteClient, mod.ID, versionID, gameServer.Directory, scope.Params[mod.Source])
 	} else {
-		updated, errUpdate = xs.modManager.Update(ctx, mod.ID, versionID, gameServer.Directory)
+		updated, errUpdate = xs.modManager.Update(ctx, mod.ID, versionID, gameServer.Directory, scope.Params[mod.Source])
 	}
 	if errUpdate != nil {
 		log.Error().Err(errUpdate).Msg("Failed to update mod")
@@ -576,13 +590,7 @@ func (xs *XylonaService) UpdateMod(
 
 // latestModVersionID resolves an install or update to "latest" to a concrete
 // version ID. For an install, mod carries only its source and source ID.
-func (xs *XylonaService) latestModVersionID(ctx context.Context, gameServer *models.GameServer, mod *models.InstalledMod) (string, error) {
-	scope, errScope := modmanager.NewUpdateScope(gameServer.R.Game, gameServer)
-	if errScope != nil {
-		log.Error().Err(errScope).Str("game_server_id", gameServer.ID).Msg("Failed to resolve mod update scope")
-		return "", internalErrf("failed to resolve server configuration")
-	}
-
+func (xs *XylonaService) latestModVersionID(ctx context.Context, scope modmanager.UpdateScope, mod *models.InstalledMod) (string, error) {
 	latest, errLatest := xs.modManager.LatestVersion(ctx, mod, scope)
 	switch {
 	case errors.Is(errLatest, modmanager.ErrLatestUnsupported):
