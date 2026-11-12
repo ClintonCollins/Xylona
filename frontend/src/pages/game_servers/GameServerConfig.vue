@@ -113,6 +113,7 @@
           <template #action>
             <q-btn
               :aria-label="`Retry loading ${selectedFilePath}`"
+              :disable="saving || generating"
               flat
               icon="refresh"
               label="Retry"
@@ -424,12 +425,13 @@ async function handleSave(fieldValues: Map<string, string>) {
           : (fileAdvancedFields.value as AdvancedFieldType[]),
     })
     const response = await GetXylonaClient().updateGameServerConfigFile(request)
+    // Toasts are global, so an accepted save is confirmed even after leaving the page.
+    if (response.success) notifySuccess(`${filePath} saved successfully`)
     if (!active || gameServerId !== getGameServerId()) return
 
     if (response.success) {
       saved = true
       if (fieldValues.has('SandboxCode')) sandboxInspectorRefreshKey.value += 1
-      notifySuccess(`${filePath} saved successfully`)
       selectedFileIsMissing.value = false
       pendingAdvancedUpdates.value = []
       // Reload the file to get fresh state
@@ -477,11 +479,12 @@ async function handleGenerate() {
       filePath,
     })
     const response = await GetXylonaClient().generateGameServerConfigFile(request)
+    if (response.success) notifySuccess(`${filePath} generated successfully`)
     if (!active || gameServerId !== getGameServerId()) return
 
     if (response.success) {
-      notifySuccess(`${filePath} generated successfully`)
       selectedFileIsMissing.value = false
+      validationErrors.value = []
       pendingAdvancedUpdates.value = []
       // Reload
       await loadSelectedFile(false)

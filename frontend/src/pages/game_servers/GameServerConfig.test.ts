@@ -604,20 +604,47 @@ describe('GameServerConfig', () => {
     )
   })
 
-  it('does not refresh or announce a pending save after leaving the page', async () => {
-    const wrapper = await mountWithMultipleFiles()
-    const pending = createDeferred<{ success: boolean; errors: [] }>()
-    mocks.updateGameServerConfigFile.mockReturnValueOnce(pending.promise)
-    wrapper
-      .findComponent({ name: 'ConfigFileEditor' })
-      .vm.$emit('save', new Map([['motd', 'Updated']]))
+  it.each([
+    { operation: 'save', verb: 'saved' },
+    { operation: 'generate', verb: 'generated' },
+  ] as const)(
+    'confirms a pending $operation after leaving the page without refreshing it',
+    async ({ operation, verb }) => {
+      const wrapper = await mountWithMultipleFiles()
+      const pending = createDeferred<{ success: boolean; errors: [] }>()
+      const mutation =
+        operation === 'save' ? mocks.updateGameServerConfigFile : mocks.generateGameServerConfigFile
+      mutation.mockReturnValueOnce(pending.promise)
+      wrapper
+        .findComponent({ name: 'ConfigFileEditor' })
+        .vm.$emit(operation, new Map([['motd', 'Updated']]))
+      await flushPromises()
+      wrapper.unmount()
+      pending.resolve({ success: true, errors: [] })
+      await flushPromises()
+      expect(mocks.getGameServerConfigFile).not.toHaveBeenCalled()
+      expect(mocks.notify).toHaveBeenCalledWith(`server.properties ${verb} successfully`)
+      expect(mocks.confirmSaved).not.toHaveBeenCalled()
+    },
+  )
+
+  it('clears save validation errors after a successful generate', async () => {
+    const wrapper = await mountWithFile()
+    mocks.updateGameServerConfigFile.mockResolvedValue({
+      success: false,
+      errors: [{ field: 'motd', message: 'Too long' }],
+    })
+    const editor = wrapper.findComponent({ name: 'ConfigFileEditor' })
+    editor.vm.$emit('save', new Map([['motd', 'x']]))
     await flushPromises()
-    wrapper.unmount()
-    pending.resolve({ success: true, errors: [] })
+    expect(editor.props('validationErrors')).toHaveLength(1)
+
+    mocks.generateGameServerConfigFile.mockResolvedValue({ success: true })
+    editor.vm.$emit('generate')
     await flushPromises()
-    expect(mocks.getGameServerConfigFile).not.toHaveBeenCalled()
-    expect(mocks.notify).not.toHaveBeenCalled()
-    expect(mocks.confirmSaved).not.toHaveBeenCalled()
+    expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('validationErrors')).toEqual(
+      [],
+    )
   })
 
   it('offers Retry when the config files fail to load', async () => {
