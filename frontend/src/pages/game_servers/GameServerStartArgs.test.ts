@@ -15,10 +15,12 @@ import {
   GetGameServerResponseSchema,
   ListNodesResponseSchema,
   QueryGameServerResponseSchema,
+  type UpdateGameServerStartArgsResponse,
   UpdateGameServerStartArgsResponseSchema,
 } from '@/proto/xylona_pb'
 import { setWebsocketConnectionStatus } from '@/utils/websocket-connection'
 import GameServerStartArgs from './GameServerStartArgs.vue'
+import type { StartArgPatch } from '@/components/game_servers/start-args'
 
 const mocks = vi.hoisted(() => {
   type EventHandler = (...args: unknown[]) => void
@@ -123,6 +125,26 @@ function buildGameServer(status: Status, baseCommandOverride = '', startArgsPatc
     }),
     directory: '/srv/game',
   })
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason: Error) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+type StartArgsViewModel = {
+  draftBaseCommandOverride: string
+  draftPatches: StartArgPatch[]
+  isDirty: boolean
+  saving: boolean
+  restarting: boolean
+  saveOnly: () => Promise<void>
+  saveAndRestart: () => Promise<void>
 }
 
 describe('GameServerStartArgs', () => {
@@ -450,6 +472,391 @@ describe('GameServerStartArgs', () => {
     expect(viewModel.gameServer.status).toBe(Status.ONLINE)
     expect(viewModel.restartStateAuthoritative).toBe(true)
     expect(mocks.updateGameServerStartArgs).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([false, true])(
+    'keeps newer base-command and argument edits after saving (restart: %s)',
+    async (restart) => {
+      mocks.superUser = true
+      mocks.getGameServer.mockResolvedValue(
+        create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.ONLINE) }),
+      )
+      mocks.queryGameServer.mockResolvedValue(queryWithPlayers(0))
+      mocks.restartGameServer.mockResolvedValue({})
+      const response = deferred<UpdateGameServerStartArgsResponse>()
+      mocks.updateGameServerStartArgs.mockReturnValueOnce(response.promise)
+      const wrapper = shallowMount(GameServerStartArgs)
+      await flushPromises()
+      const viewModel = wrapper.vm as unknown as StartArgsViewModel
+      const editor = wrapper.getComponent({ name: 'StartArgsEditor' })
+      const submittedPatches: StartArgPatch[] = [
+        { id: 'port', op: 'edit', tokens: ['--port', '28010'] },
+      ]
+      editor.vm.$emit('update:base-command-override', './submitted.sh')
+      editor.vm.$emit('update:patches', submittedPatches)
+      const saving = restart ? viewModel.saveAndRestart() : viewModel.saveOnly()
+      await flushPromises()
+      expect(mocks.updateGameServerStartArgs).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseCommandOverride: './submitted.sh',
+          startArgsPatches: JSON.stringify(submittedPatches),
+        }),
+      )
+
+      const newerPatches: StartArgPatch[] = [
+        { id: 'port', op: 'edit', tokens: ['--port', '28020'] },
+      ]
+      editor.vm.$emit('update:base-command-override', './newer.sh')
+      editor.vm.$emit('update:patches', newerPatches)
+      response.resolve(
+        create(UpdateGameServerStartArgsResponseSchema, {
+          gameServer: buildGameServer(
+            Status.UNKNOWN,
+            './submitted.sh',
+            JSON.stringify(submittedPatches),
+          ),
+        }),
+      )
+      await saving
+      await flushPromises()
+
+      expect(editor.props('baseCommandOverride')).toBe('./newer.sh')
+      expect(editor.props('patches')).toEqual(newerPatches)
+      expect(viewModel.isDirty).toBe(true)
+      expect(mocks.notify).toHaveBeenCalledWith(
+        expect.stringContaining('Newer edits are still unsaved.'),
+      )
+      expect(mocks.restartGameServer).toHaveBeenCalledTimes(Number(restart))
+
+      mocks.updateGameServerStartArgs.mockResolvedValueOnce(
+        create(UpdateGameServerStartArgsResponseSchema, {
+          gameServer: buildGameServer(Status.UNKNOWN, './newer.sh', JSON.stringify(newerPatches)),
+        }),
+      )
+      await viewModel.saveOnly()
+      expect(viewModel.isDirty).toBe(false)
+      expect(mocks.updateGameServerStartArgs).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          baseCommandOverride: './newer.sh',
+          startArgsPatches: JSON.stringify(newerPatches),
+        }),
+      )
+      wrapper.unmount()
+    },
+  )
+
+  it('rejects repeated save events while a submission is pending', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.ONLINE) }),
+    )
+    const response = deferred<UpdateGameServerStartArgsResponse>()
+    mocks.updateGameServerStartArgs.mockReturnValue(response.promise)
+    mocks.queryGameServer.mockResolvedValue(queryWithPlayers(0))
+    mocks.restartGameServer.mockResolvedValue({})
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as StartArgsViewModel
+    viewModel.draftBaseCommandOverride = './submitted.sh'
+    const saving = viewModel.saveOnly()
+    const repeatedSave = viewModel.saveOnly()
+    const repeatedRestart = viewModel.saveAndRestart()
+    const callsWhilePending = mocks.updateGameServerStartArgs.mock.calls.length
+    response.resolve(
+      create(UpdateGameServerStartArgsResponseSchema, {
+        gameServer: buildGameServer(Status.UNKNOWN, './submitted.sh'),
+      }),
+    )
+    await Promise.all([saving, repeatedSave, repeatedRestart])
+    expect(callsWhilePending).toBe(1)
+    expect(mocks.queryGameServer).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('still warns before leaving when a pending save draft is reverted to the old value', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.OFFLINE) }),
+    )
+    const response = deferred<UpdateGameServerStartArgsResponse>()
+    mocks.updateGameServerStartArgs.mockReturnValueOnce(response.promise)
+    mocks.dialog.mockReturnValue({
+      onOk() {
+        return this
+      },
+      onCancel(handler: () => void) {
+        handler()
+        return this
+      },
+      onDismiss() {
+        return this
+      },
+    })
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as StartArgsViewModel
+    viewModel.draftBaseCommandOverride = './submitted.sh'
+    const saving = viewModel.saveOnly()
+    viewModel.draftBaseCommandOverride = ''
+    expect(viewModel.isDirty).toBe(false)
+    const canLeaveWhilePending = await mocks.leaveGuard?.()
+    response.resolve(
+      create(UpdateGameServerStartArgsResponseSchema, {
+        gameServer: buildGameServer(Status.UNKNOWN, './submitted.sh'),
+      }),
+    )
+    await saving
+    expect(canLeaveWhilePending).toBe(false)
+    expect(viewModel.draftBaseCommandOverride).toBe('')
+    expect(viewModel.isDirty).toBe(true)
+    wrapper.unmount()
+  })
+
+  it.each(['base', 'patches'] as const)(
+    'preserves newer %s edits while accepting normalization of the unchanged field',
+    async (changedField) => {
+      mocks.getGameServer.mockResolvedValue(
+        create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.OFFLINE) }),
+      )
+      const response = deferred<UpdateGameServerStartArgsResponse>()
+      mocks.updateGameServerStartArgs.mockReturnValueOnce(response.promise)
+      const wrapper = shallowMount(GameServerStartArgs)
+      await flushPromises()
+      const viewModel = wrapper.vm as unknown as StartArgsViewModel
+      viewModel.draftBaseCommandOverride = ' ./submitted.sh '
+      viewModel.draftPatches = [{ id: 'port', op: 'edit', tokens: ['--port', '28010'] }]
+      const saving = viewModel.saveOnly()
+      if (changedField === 'base') viewModel.draftBaseCommandOverride = './newer.sh'
+      else viewModel.draftPatches = []
+      const savedPatches: StartArgPatch[] = [
+        { id: 'port', op: 'edit', tokens: ['--port', '28010'], label: 'Port' },
+      ]
+      response.resolve(
+        create(UpdateGameServerStartArgsResponseSchema, {
+          gameServer: buildGameServer(
+            Status.OFFLINE,
+            './submitted.sh',
+            JSON.stringify(savedPatches),
+          ),
+        }),
+      )
+      await saving
+      expect(viewModel.draftBaseCommandOverride).toBe(
+        changedField === 'base' ? './newer.sh' : './submitted.sh',
+      )
+      expect(viewModel.draftPatches).toEqual(changedField === 'patches' ? [] : savedPatches)
+      expect(viewModel.isDirty).toBe(true)
+      wrapper.unmount()
+    },
+  )
+
+  it('preserves the draft after a failed save and permits a retry', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.OFFLINE) }),
+    )
+    const response = deferred<UpdateGameServerStartArgsResponse>()
+    mocks.updateGameServerStartArgs.mockReturnValueOnce(response.promise)
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as StartArgsViewModel
+    viewModel.draftBaseCommandOverride = './submitted.sh'
+    const saving = viewModel.saveOnly()
+    viewModel.draftBaseCommandOverride = './newer.sh'
+    const error = new Error('node unavailable')
+    response.reject(error)
+    await saving
+    expect(viewModel.draftBaseCommandOverride).toBe('./newer.sh')
+    expect(viewModel.isDirty).toBe(true)
+    expect(viewModel.saving).toBe(false)
+    expect(mocks.notify).toHaveBeenCalledWith(
+      error,
+      'Failed to save start command',
+      expect.anything(),
+    )
+    // The failed request no longer holds the page once the draft is clean again.
+    viewModel.draftBaseCommandOverride = ''
+    expect(await mocks.leaveGuard?.()).toBe(true)
+    viewModel.draftBaseCommandOverride = './newer.sh'
+    mocks.updateGameServerStartArgs.mockResolvedValueOnce(
+      create(UpdateGameServerStartArgsResponseSchema, {
+        gameServer: buildGameServer(Status.OFFLINE, './newer.sh'),
+      }),
+    )
+    await viewModel.saveOnly()
+    expect(viewModel.isDirty).toBe(false)
+    wrapper.unmount()
+  })
+
+  it.each([false, true])(
+    'keeps submission controls locked through restart confirmation (confirm: %s)',
+    async (confirm) => {
+      mocks.getGameServer.mockResolvedValue(
+        create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.ONLINE) }),
+      )
+      mocks.queryGameServer.mockResolvedValue(queryWithPlayers(2))
+      mocks.updateGameServerStartArgs.mockResolvedValue(
+        create(UpdateGameServerStartArgsResponseSchema, {
+          gameServer: buildGameServer(Status.ONLINE, './submitted.sh'),
+        }),
+      )
+      mocks.restartGameServer.mockResolvedValue({})
+      let accept!: () => void
+      let dismiss!: () => void
+      mocks.dialog.mockReturnValue({
+        onOk(handler: () => void) {
+          accept = handler
+          return this
+        },
+        onDismiss(handler: () => void) {
+          dismiss = handler
+          return this
+        },
+      })
+      const wrapper = shallowMount(GameServerStartArgs, {
+        global: { stubs: { PageHeader: false } },
+      })
+      await flushPromises()
+      const viewModel = wrapper.vm as unknown as StartArgsViewModel
+      viewModel.draftBaseCommandOverride = './submitted.sh'
+      const restarting = viewModel.saveAndRestart()
+      await flushPromises()
+      expect(viewModel.restarting).toBe(true)
+      for (const button of wrapper.findAllComponents({ name: 'QBtn' })) {
+        expect(button.props('disable')).toBe(true)
+      }
+      await viewModel.saveOnly()
+      await viewModel.saveAndRestart()
+      expect(mocks.queryGameServer).toHaveBeenCalledTimes(1)
+      expect(mocks.updateGameServerStartArgs).not.toHaveBeenCalled()
+      if (confirm) accept()
+      dismiss()
+      await restarting
+      expect(viewModel.restarting).toBe(false)
+      expect(mocks.updateGameServerStartArgs).toHaveBeenCalledTimes(Number(confirm))
+      expect(mocks.restartGameServer).toHaveBeenCalledTimes(Number(confirm))
+      wrapper.unmount()
+    },
+  )
+
+  it.each(['query', 'confirmation', 'save'] as const)(
+    'after leaving during %s, finishes and reports only a restart whose save was sent',
+    async (stage) => {
+      mocks.getGameServer.mockResolvedValue(
+        create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.ONLINE) }),
+      )
+      const query = deferred<ReturnType<typeof queryWithPlayers>>()
+      const save = deferred<UpdateGameServerStartArgsResponse>()
+      mocks.queryGameServer.mockReturnValue(query.promise)
+      mocks.updateGameServerStartArgs.mockReturnValue(save.promise)
+      let accept!: () => void
+      mocks.dialog.mockReturnValue({
+        onOk(handler: () => void) {
+          accept = handler
+          return this
+        },
+        onDismiss() {
+          return this
+        },
+      })
+      const wrapper = shallowMount(GameServerStartArgs)
+      await flushPromises()
+      const viewModel = wrapper.vm as unknown as StartArgsViewModel
+      viewModel.draftBaseCommandOverride = './submitted.sh'
+      const restarting = viewModel.saveAndRestart()
+      if (stage === 'query') wrapper.unmount()
+      query.resolve(queryWithPlayers(stage === 'save' ? 0 : 2))
+      await flushPromises()
+      expect(mocks.dialog).toHaveBeenCalledTimes(Number(stage === 'confirmation'))
+      // An edit made during the save is discarded by leaving, so the toast must not mention it.
+      if (stage === 'save') viewModel.draftBaseCommandOverride = './discarded.sh'
+      if (stage !== 'query') wrapper.unmount()
+      if (stage === 'confirmation') accept()
+      save.resolve(
+        create(UpdateGameServerStartArgsResponseSchema, {
+          gameServer: buildGameServer(Status.ONLINE, './submitted.sh'),
+        }),
+      )
+      await restarting
+      expect(mocks.updateGameServerStartArgs).toHaveBeenCalledTimes(Number(stage === 'save'))
+      expect(mocks.restartGameServer).toHaveBeenCalledTimes(Number(stage === 'save'))
+      if (stage === 'save') {
+        expect(mocks.notify).toHaveBeenCalledWith('Start command saved and server restarted.')
+      } else {
+        expect(mocks.notify).not.toHaveBeenCalled()
+      }
+    },
+  )
+
+  it('saves and reports the backend error when the server stops during confirmation', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.ONLINE) }),
+    )
+    mocks.queryGameServer.mockResolvedValue(queryWithPlayers(2))
+    mocks.updateGameServerStartArgs.mockResolvedValue(
+      create(UpdateGameServerStartArgsResponseSchema, {
+        gameServer: buildGameServer(Status.OFFLINE, './submitted.sh'),
+      }),
+    )
+    const error = new Error('game server must be running to restart')
+    mocks.restartGameServer.mockRejectedValue(error)
+    let accept!: () => void
+    mocks.dialog.mockReturnValue({
+      onOk(handler: () => void) {
+        accept = handler
+        return this
+      },
+      onDismiss() {
+        return this
+      },
+    })
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as StartArgsViewModel
+    viewModel.draftBaseCommandOverride = './submitted.sh'
+    const restarting = viewModel.saveAndRestart()
+    await flushPromises()
+    mocks.eventBus.emit('gameServerStatus', 'server-1', 'Server', Status.OFFLINE)
+    accept()
+    await restarting
+    expect(mocks.updateGameServerStartArgs).toHaveBeenCalledTimes(1)
+    expect(mocks.restartGameServer).toHaveBeenCalledTimes(1)
+    expect(mocks.notify).toHaveBeenCalledWith(
+      error,
+      'Start command was saved, but the server could not restart',
+      expect.anything(),
+    )
+    wrapper.unmount()
+  })
+
+  it('lets the operator leave during the restart and still reports its failure', async () => {
+    mocks.getGameServer.mockResolvedValue(
+      create(GetGameServerResponseSchema, { gameServer: buildGameServer(Status.ONLINE) }),
+    )
+    mocks.queryGameServer.mockResolvedValue(queryWithPlayers(0))
+    mocks.updateGameServerStartArgs.mockResolvedValue(
+      create(UpdateGameServerStartArgsResponseSchema, {
+        gameServer: buildGameServer(Status.ONLINE, './submitted.sh'),
+      }),
+    )
+    const restart = deferred<unknown>()
+    mocks.restartGameServer.mockReturnValue(restart.promise)
+    const wrapper = shallowMount(GameServerStartArgs)
+    await flushPromises()
+    const viewModel = wrapper.vm as unknown as StartArgsViewModel
+    viewModel.draftBaseCommandOverride = './submitted.sh'
+    const restarting = viewModel.saveAndRestart()
+    await flushPromises()
+    expect(mocks.restartGameServer).toHaveBeenCalledTimes(1)
+    expect(viewModel.isDirty).toBe(false)
+    expect(await mocks.leaveGuard?.()).toBe(true)
+
+    wrapper.unmount()
+    const error = new Error('server did not start')
+    restart.reject(error)
+    await restarting
+    expect(mocks.notify).toHaveBeenCalledWith(
+      error,
+      'Start command was saved, but the server could not restart',
+      expect.anything(),
+    )
   })
 
   it('keeps restart disabled while live status is stale or unknown', async () => {
