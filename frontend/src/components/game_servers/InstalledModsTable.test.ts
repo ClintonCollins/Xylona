@@ -171,6 +171,21 @@ describe('InstalledModsTable', () => {
     expect(wrapper.text()).not.toContain('Update All')
   })
 
+  it('offers Update All only after a pinned update is unpinned', async () => {
+    const pinned = makeMod({ updateAvailable: true, pinnedVersion: '0.90.0' })
+    const wrapper = mountTable([pinned])
+
+    expect(wrapper.text()).not.toContain('Update All')
+    // An explicit per-mod update is still available for a deliberate change.
+    expect(wrapper.text()).toContain('Update to')
+
+    await wrapper.setProps({ installedMods: [{ ...pinned, pinnedVersion: '' }] })
+    expect(wrapper.text()).toContain('Update All')
+
+    await wrapper.setProps({ installedMods: [pinned] })
+    expect(wrapper.text()).not.toContain('Update All')
+  })
+
   it('emits update-all when "Update All" button is clicked', async () => {
     const mod = makeMod({ updateAvailable: true, latestVersion: '0.91.0' })
     const wrapper = mountTable([mod])
