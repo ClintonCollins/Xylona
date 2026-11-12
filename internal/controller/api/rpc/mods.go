@@ -410,6 +410,19 @@ func (xs *XylonaService) InstallMod(
 		return nil, errStopped
 	}
 
+	// An empty version ID asks for the latest version the server can use.
+	versionID := request.Msg.GetVersionId()
+	if versionID == "" {
+		latestID, errLatest := xs.latestModVersionID(ctx, info.gameServer, &models.InstalledMod{
+			Source:   request.Msg.GetSource(),
+			SourceID: request.Msg.GetSourceId(),
+		})
+		if errLatest != nil {
+			return nil, errLatest
+		}
+		versionID = latestID
+	}
+
 	remoteClient, isRemote, errRemoteClient := xs.remoteModClient(info.gameServer)
 	if errRemoteClient != nil {
 		return nil, errRemoteClient
@@ -424,7 +437,7 @@ func (xs *XylonaService) InstallMod(
 			info.gameServer.ID,
 			request.Msg.GetSource(),
 			request.Msg.GetSourceId(),
-			request.Msg.GetVersionId(),
+			versionID,
 			info.gameServer.Directory,
 			installPath,
 		)
@@ -434,7 +447,7 @@ func (xs *XylonaService) InstallMod(
 			info.gameServer.ID,
 			request.Msg.GetSource(),
 			request.Msg.GetSourceId(),
-			request.Msg.GetVersionId(),
+			versionID,
 			info.gameServer.Directory,
 			installPath,
 		)
@@ -561,7 +574,8 @@ func (xs *XylonaService) UpdateMod(
 	}, nil
 }
 
-// latestModVersionID resolves an update to "latest" to a concrete version ID.
+// latestModVersionID resolves an install or update to "latest" to a concrete
+// version ID. For an install, mod carries only its source and source ID.
 func (xs *XylonaService) latestModVersionID(ctx context.Context, gameServer *models.GameServer, mod *models.InstalledMod) (string, error) {
 	scope, errScope := modmanager.NewUpdateScope(gameServer.R.Game, gameServer)
 	if errScope != nil {
@@ -576,7 +590,7 @@ func (xs *XylonaService) latestModVersionID(ctx context.Context, gameServer *mod
 	case errors.Is(errLatest, modproviders.ErrNoUpdateAvailable):
 		return "", connect.NewError(connect.CodeFailedPrecondition, errors.New("no compatible version of this mod is available"))
 	case errLatest != nil:
-		log.Error().Err(errLatest).Str("installed_mod_id", mod.ID).Msg("Failed to resolve latest mod version")
+		log.Error().Err(errLatest).Str("installed_mod_id", mod.ID).Str("source", mod.Source).Str("source_id", mod.SourceID).Msg("Failed to resolve latest mod version")
 		return "", connect.NewError(connect.CodeUnavailable, errors.New("could not check for the latest mod version"))
 	case latest.VersionID == mod.InstalledVersionID:
 		return "", connect.NewError(connect.CodeFailedPrecondition, errors.New("mod is already up to date"))
