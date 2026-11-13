@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:ca5dfe7c3eda542e2dd506b0ffc4975add79e8401c4b2b5cca57323635e4c7ab",
+  "content_hash": "sha256:56dba2d9d001a832d551e982f142c6e504ef89d9f94fae7e4bbc747b94e673ca",
   "game": {
     "id": "starbound",
     "name": "Starbound",
@@ -63,6 +63,7 @@
       "managed_fields": {
         "serverName": "game_server.server_name",
         "gameServerPort": "game_server.port",
+        "queryServerPort": "game_server.query_port",
         "maxPlayers": "game_server.max_players"
       },
       "schema": {
@@ -121,12 +122,24 @@
               "source": "game_server.port"
             }
           },
+          "queryServerPort": {
+            "type": "integer",
+            "title": "Query port",
+            "default": 21025,
+            "minimum": 1,
+            "maximum": 65535,
+            "x-group": "Networking",
+            "x-order": 2,
+            "x-managed": {
+              "source": "game_server.query_port"
+            }
+          },
           "runQueryServer": {
             "type": "boolean",
             "title": "Run query server",
             "default": true,
             "x-group": "Networking",
-            "x-order": 2
+            "x-order": 3
           }
         }
       }
