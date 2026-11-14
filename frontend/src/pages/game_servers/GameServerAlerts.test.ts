@@ -2,6 +2,7 @@ import { create } from '@bufbuild/protobuf'
 import { createPinia, setActivePinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
+import { Quasar, QTable, QTd } from 'quasar'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AlertHistoryEntry, AlertRule, NotificationChannel } from '@/proto/shared_pb'
 import {
@@ -15,6 +16,8 @@ import {
 import { CheckUserAuthenticatedResponseSchema, UserSchema } from '@/proto/xylona_pb'
 import { useUserAuthStore } from '@/stores/xylona'
 import GameServerAlerts from './GameServerAlerts.vue'
+
+const quasarScreen = vi.hoisted(() => ({ lt: { md: false } }))
 
 const mocks = vi.hoisted(() => ({
   notifyConnectError: vi.fn(),
@@ -35,7 +38,7 @@ vi.mock('quasar', async () => {
   return {
     ...actual,
     useQuasar: () => ({
-      screen: { lt: { md: false } },
+      screen: quasarScreen,
       dialog: mocks.dialog,
     }),
   }
@@ -123,7 +126,7 @@ const QTableStub = defineComponent({
     pagination: { type: Object, default: () => ({}) },
   },
   template: `<div class="q-table-stub">
-    <div v-if="rows.length === 0" class="q-table-no-data">{{ noDataLabel }}</div>
+    <div v-if="rows.length === 0" class="q-table-no-data"><slot name="no-data">{{ noDataLabel }}</slot></div>
     <div v-for="(row, i) in rows" :key="i" class="q-table-row">
       {{ JSON.stringify(row) }}
       <slot name="body-cell-enabled" :row="row" />
@@ -159,11 +162,12 @@ function setAlertPermissions(permissionIds: string[] = ['alerts.manage']) {
   })
 }
 
-function mountAlerts(permissionIds: string[] = ['alerts.manage']) {
+function mountAlerts(permissionIds: string[] = ['alerts.manage'], realTable = false) {
   setAlertPermissions(permissionIds)
 
   return mount(GameServerAlerts, {
     global: {
+      plugins: realTable ? [Quasar] : [],
       stubs: {
         'q-tabs': {
           props: ['modelValue'],
@@ -183,9 +187,10 @@ function mountAlerts(permissionIds: string[] = ['alerts.manage']) {
           props: ['name'],
           template: '<div class="q-tab-panel-stub" :data-panel-name="name"><slot /></div>',
         },
-        'q-table': QTableStub,
-        'q-td': { template: '<div><slot /></div>' },
+        'q-table': realTable ? QTable : QTableStub,
+        'q-td': realTable ? QTd : { template: '<div><slot /></div>' },
         'q-btn': {
+          name: 'QBtn',
           props: ['label', 'icon', 'color', 'disable', 'loading', 'flat', 'dense', 'size'],
           emits: ['click'],
           template:
@@ -199,6 +204,7 @@ function mountAlerts(permissionIds: string[] = ['alerts.manage']) {
         'q-tooltip': { template: '<span />' },
         'q-icon': { props: ['name', 'size', 'color'], template: '<i />' },
         'q-select': {
+          name: 'QSelect',
           props: ['modelValue', 'options', 'label'],
           template: '<div class="q-select-stub" />',
         },
@@ -222,8 +228,33 @@ function mountAlerts(permissionIds: string[] = ['alerts.manage']) {
   })
 }
 
+function historyFilter(wrapper: ReturnType<typeof mountAlerts>) {
+  const filter = wrapper
+    .findAllComponents({ name: 'QSelect' })
+    .find((component) => component.props('label') === 'Filter by event')
+  if (!filter) throw new Error('Expected event filter')
+  return filter
+}
+
+function historyTable(wrapper: ReturnType<typeof mountAlerts>) {
+  const table = wrapper
+    .findAllComponents(QTableStub)
+    .find((component) => component.attributes('aria-label') === 'Alert history')
+  if (!table) throw new Error('Expected alert history table')
+  return table
+}
+
+function loadOlderButton(wrapper: ReturnType<typeof mountAlerts>) {
+  const button = wrapper
+    .findAllComponents({ name: 'QBtn' })
+    .find((component) => component.props('label') === 'Load older events')
+  if (!button) throw new Error('Expected Load older events button')
+  return button
+}
+
 describe('GameServerAlerts', () => {
   beforeEach(() => {
+    quasarScreen.lt.md = false
     setActivePinia(createPinia())
   })
 
@@ -407,7 +438,9 @@ describe('GameServerAlerts', () => {
 
     expect(wrapper.text()).toContain('Alerts could not be loaded.')
     expect(wrapper.text()).toContain('load rules failed')
-    expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
+    expect(
+      wrapper.findAllComponents(QTableStub)[0].findComponent({ name: 'EmptyState' }).exists(),
+    ).toBe(false)
   })
 
   it('does not claim there are no channels when channels fail to load', async () => {
@@ -511,9 +544,9 @@ describe('GameServerAlerts', () => {
 
     const loadMoreButton = wrapper
       .findAll('button')
-      .find((button) => button.text().includes('Load More'))
+      .find((button) => button.text().includes('Load older events'))
     if (!loadMoreButton) {
-      throw new Error('expected Load More button')
+      throw new Error('expected Load older events button')
     }
     await loadMoreButton.trigger('click')
     await flushPromises()
@@ -534,6 +567,188 @@ describe('GameServerAlerts', () => {
     const vm = wrapper.vm as unknown as AlertsVM
     expect(vm.alertHistory).toHaveLength(101)
   })
+
+  it('distinguishes an empty history from a filter with no matches', async () => {
+    setupDefaultMocks()
+    const wrapper = mountAlerts()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No alert history for this server')
+    expect(wrapper.find('[data-testid="history-scope"]').text()).toBe('0 events loaded')
+    expect(wrapper.find('[data-testid="clear-history-filter"]').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it.each([1, 100])(
+    'explains the scope of a filter with no matches in %i loaded events',
+    async (count) => {
+      setupDefaultMocks({
+        entries: Array.from({ length: count }, (_, index) =>
+          makeHistoryEntry({ id: `hist-${index}`, eventType: AlertEventType.STATUS_CHANGE }),
+        ),
+      })
+      const wrapper = mountAlerts()
+      await flushPromises()
+      const filter = historyFilter(wrapper)
+      filter.vm.$emit('update:modelValue', AlertEventType.CRASH)
+      await flushPromises()
+
+      expect(wrapper.text()).not.toContain('No alert history for this server')
+      expect(wrapper.text()).toContain('No matching events in loaded history')
+      expect(wrapper.find('[data-testid="history-scope"]').text()).toContain(
+        `0 matching of ${count} loaded`,
+      )
+      expect(wrapper.text().includes('Older events may contain a match.')).toBe(count === 100)
+      expect(wrapper.find('[data-testid="clear-history-filter"]').exists()).toBe(true)
+
+      wrapper.unmount()
+    },
+  )
+
+  it('clears the history filter and returns to the first page without changing page size', async () => {
+    setupDefaultMocks({ entries: [makeHistoryEntry({ eventType: AlertEventType.STATUS_CHANGE })] })
+    const wrapper = mountAlerts()
+    await flushPromises()
+    const table = historyTable(wrapper)
+    table.vm.$emit('update:pagination', { page: 3, rowsPerPage: 10 })
+    await flushPromises()
+    const filter = historyFilter(wrapper)
+    filter.vm.$emit('update:modelValue', AlertEventType.CRASH)
+    await flushPromises()
+
+    expect(table.props('pagination')).toMatchObject({ page: 1, rowsPerPage: 10 })
+    await wrapper.get('[data-testid="clear-history-filter"]').trigger('click')
+    await flushPromises()
+
+    expect(filter.props('modelValue')).toBeNull()
+    expect(table.props('rows')).toHaveLength(1)
+    expect(wrapper.text()).not.toContain('No matching events in loaded history')
+    expect(mocks.getAlertHistory).toHaveBeenCalledTimes(1)
+
+    wrapper.unmount()
+  })
+
+  it('finds an older matching event without duplicating repeated load requests', async () => {
+    setupDefaultMocks({
+      entries: Array.from({ length: 100 }, (_, index) =>
+        makeHistoryEntry({ id: `hist-${index}`, eventType: AlertEventType.STATUS_CHANGE }),
+      ),
+    })
+    let resolveOlder!: (response: { entries: AlertHistoryEntry[] }) => void
+    mocks.getAlertHistory.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOlder = resolve
+        }),
+    )
+    const wrapper = mountAlerts()
+    await flushPromises()
+    const filter = historyFilter(wrapper)
+    filter.vm.$emit('update:modelValue', AlertEventType.CRASH)
+    await flushPromises()
+
+    const loadOlder = loadOlderButton(wrapper)
+    loadOlder.vm.$emit('click')
+    loadOlder.vm.$emit('click')
+    await flushPromises()
+    expect(mocks.getAlertHistory).toHaveBeenCalledTimes(2)
+    expect(mocks.getAlertHistory).toHaveBeenLastCalledWith(
+      expect.objectContaining({ limit: 100, offset: 100 }),
+    )
+    expect(wrapper.text()).not.toContain('No matching events in loaded history')
+
+    resolveOlder({ entries: [makeHistoryEntry({ id: 'older-crash' })] })
+    await flushPromises()
+
+    const table = historyTable(wrapper)
+    expect(table.props('rows')).toEqual([expect.objectContaining({ id: 'older-crash' })])
+    expect(wrapper.find('[data-testid="history-scope"]').text()).toBe(
+      '1 matching of 101 loaded events',
+    )
+    expect(wrapper.text()).not.toContain('Older events may be available')
+    expect(wrapper.text()).not.toContain('Load older events')
+
+    wrapper.unmount()
+  })
+
+  it('retries a failed older-history request without hiding it behind an empty state', async () => {
+    setupDefaultMocks({
+      entries: Array.from({ length: 100 }, (_, index) =>
+        makeHistoryEntry({ id: `hist-${index}`, eventType: AlertEventType.STATUS_CHANGE }),
+      ),
+    })
+    mocks.getAlertHistory.mockRejectedValueOnce(new Error('Older history unavailable'))
+    mocks.getAlertHistory.mockResolvedValueOnce({
+      entries: [makeHistoryEntry({ id: 'older-crash' })],
+    })
+    const wrapper = mountAlerts()
+    await flushPromises()
+    historyFilter(wrapper).vm.$emit('update:modelValue', AlertEventType.CRASH)
+    await flushPromises()
+    loadOlderButton(wrapper).vm.$emit('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Older history unavailable')
+    expect(wrapper.text()).not.toContain('No matching events in loaded history')
+    expect(wrapper.find('[data-testid="history-scope"]').exists()).toBe(false)
+
+    loadOlderButton(wrapper).vm.$emit('click')
+    await flushPromises()
+
+    expect(mocks.getAlertHistory).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 100 }))
+    expect(historyTable(wrapper).props('rows')).toHaveLength(1)
+    expect(wrapper.text()).not.toContain('Older history unavailable')
+    expect(wrapper.find('[data-testid="history-scope"]').text()).toBe(
+      '1 matching of 101 loaded events',
+    )
+    wrapper.unmount()
+  })
+
+  it.each([false, true])(
+    'keeps real-table pagination, filter, and page size coherent after refresh (mobile: %s)',
+    async (mobile) => {
+      quasarScreen.lt.md = mobile
+      const rowSelector = mobile ? '.alerts-mobile-card' : 'tbody tr'
+      setupDefaultMocks({
+        entries: Array.from({ length: 60 }, (_, index) =>
+          makeHistoryEntry({ id: `hist-${index}`, eventData: `Crash ${index}` }),
+        ),
+      })
+      mocks.getAlertHistory.mockResolvedValueOnce({
+        entries: [makeHistoryEntry({ id: 'refreshed-crash' })],
+      })
+      const wrapper = mountAlerts(['alerts.view_history'], true)
+      await flushPromises()
+      const table = wrapper
+        .findAllComponents(QTable)
+        .find((component) => component.attributes('aria-label') === 'Alert history')
+      if (!table) throw new Error('Expected real alert history table')
+      historyFilter(wrapper).vm.$emit('update:modelValue', AlertEventType.CRASH)
+      await flushPromises()
+      table.vm.$emit('update:pagination', { page: 3, rowsPerPage: 10 })
+      await flushPromises()
+      expect(table.findAll(rowSelector)).toHaveLength(10)
+
+      await wrapper.get('[aria-label="Refresh history"]').trigger('click')
+      await flushPromises()
+
+      expect(table.props('pagination')).toMatchObject({ page: 1, rowsPerPage: 10 })
+      expect(historyFilter(wrapper).props('modelValue')).toBe(AlertEventType.CRASH)
+      expect(table.findAll(rowSelector)).toHaveLength(1)
+      expect(wrapper.find('[data-testid="history-scope"]').text()).toBe(
+        '1 matching of 1 loaded event',
+      )
+
+      historyFilter(wrapper).vm.$emit('update:modelValue', AlertEventType.STATUS_CHANGE)
+      await flushPromises()
+      expect(table.text()).toContain('No matching events in loaded history')
+      await wrapper.get('[data-testid="clear-history-filter"]').trigger('click')
+      await flushPromises()
+      expect(table.findAll(rowSelector)).toHaveLength(1)
+      wrapper.unmount()
+    },
+  )
 
   it('hides alert rule write actions for history-only users', async () => {
     setupDefaultMocks({

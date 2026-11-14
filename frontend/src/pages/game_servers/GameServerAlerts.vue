@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { create } from '@bufbuild/protobuf'
 import { useQuasar } from 'quasar'
@@ -56,10 +56,10 @@ const alertRules = ref<AlertRule[]>([])
 const historyLoading = ref(true)
 const alertHistory = ref<AlertHistoryEntry[]>([])
 const historyHasMore = ref(false)
-const historyPage = ref(1)
-const historyRowsPerPage = ref(25)
+const historyPagination = ref({ page: 1, rowsPerPage: 25 })
 const historyEventTypeFilter = ref<AlertEventType | null>(null)
 const historyPageSize = 100
+let historyRequestPending = false
 
 // Channels for dropdown
 const channels = ref<NotificationChannel[]>([])
@@ -173,6 +173,30 @@ const filteredHistory = computed(() => {
   return alertHistory.value.filter((entry) => entry.eventType === historyEventTypeFilter.value)
 })
 
+const historyScope = computed(() => {
+  const count = alertHistory.value.length
+  const loaded = `${count} loaded ${count === 1 ? 'event' : 'events'}`
+  return historyEventTypeFilter.value === null
+    ? `${count} ${count === 1 ? 'event' : 'events'} loaded`
+    : `${filteredHistory.value.length} matching of ${loaded}`
+})
+
+const historyEmptyTitle = computed(() =>
+  alertHistory.value.length === 0
+    ? 'No alert history for this server'
+    : 'No matching events in loaded history',
+)
+const historyEmptyDescription = computed(() => {
+  if (alertHistory.value.length === 0) return ''
+  return historyHasMore.value
+    ? 'Older events may contain a match. Load older events or clear the filter.'
+    : 'Try a different event type or clear the filter.'
+})
+
+watch(historyEventTypeFilter, () => {
+  historyPagination.value.page = 1
+})
+
 // Rules have no name of their own, so row controls name them by event and condition.
 function ruleName(rule: AlertRule): string {
   const label = `${alertEventTypeLabel(rule.eventType)} alert`
@@ -250,6 +274,9 @@ async function loadRules(): Promise<void> {
 }
 
 async function loadHistory(append: boolean = false): Promise<void> {
+  // Repeated clicks must not append the same page twice or race a refresh.
+  if (historyRequestPending) return
+  historyRequestPending = true
   historyLoading.value = true
   try {
     const offset = append ? alertHistory.value.length : 0
@@ -264,12 +291,14 @@ async function loadHistory(append: boolean = false): Promise<void> {
       alertHistory.value.push(...response.entries)
     } else {
       alertHistory.value = response.entries
+      historyPagination.value.page = 1
     }
     historyHasMore.value = response.entries.length === historyPageSize
     historyError.value = ''
   } catch (unknownErr: unknown) {
     historyError.value = connectErrorMessage(unknownErr)
   } finally {
+    historyRequestPending = false
     historyLoading.value = false
   }
 }
@@ -532,17 +561,30 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             label="Filter by event"
             map-options
             outlined />
-          <q-btn aria-label="Refresh history" flat icon="refresh" @click="loadHistory()">
+          <q-btn
+            :disable="historyLoading"
+            aria-label="Refresh history"
+            flat
+            icon="refresh"
+            @click="loadHistory()">
             <q-tooltip>Refresh</q-tooltip>
           </q-btn>
         </div>
 
+        <div
+          v-if="!historyLoading && !historyError && !nodeError"
+          class="alerts-history-scope text-xy-muted"
+          role="status">
+          <span data-testid="history-scope">{{ historyScope }}</span>
+          <span v-if="historyHasMore">Older events may be available.</span>
+        </div>
+
         <q-table
+          v-model:pagination="historyPagination"
           aria-label="Alert history"
           :columns="historyColumns"
           :grid="mobileGrid"
           :loading="historyLoading"
-          :pagination="{ page: historyPage, rowsPerPage: historyRowsPerPage }"
           :rows="filteredHistory"
           class="xy-standalone-table"
           flat
@@ -550,8 +592,19 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
           <template #no-data>
             <empty-state
               v-if="!historyLoading && !historyError && !nodeError"
-              icon="history"
-              title="No alert history for this server" />
+              :description="historyEmptyDescription"
+              :icon="alertHistory.length === 0 ? 'history' : 'filter_list_off'"
+              :title="historyEmptyTitle">
+              <template v-if="historyEventTypeFilter !== null" #actions>
+                <q-btn
+                  color="primary"
+                  data-testid="clear-history-filter"
+                  flat
+                  label="Clear filter"
+                  no-caps
+                  @click="historyEventTypeFilter = null" />
+              </template>
+            </empty-state>
           </template>
           <template #item="props">
             <q-card bordered class="alerts-mobile-card" flat>
@@ -604,7 +657,7 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
             :loading="historyLoading"
             color="primary"
             flat
-            label="Load More"
+            label="Load older events"
             no-caps
             @click="loadMoreHistory" />
         </div>
@@ -661,6 +714,14 @@ async function toggleRuleEnabled(rule: AlertRule): Promise<void> {
 
 .alerts-filter-select {
   min-width: 220px;
+}
+
+.alerts-history-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-sm);
+  margin-bottom: var(--xy-space-sm);
+  font-size: var(--xy-font-size-sm);
 }
 
 .alerts-mobile-card {
