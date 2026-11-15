@@ -33,6 +33,8 @@ const loading = ref(true)
 const loadError = ref(false)
 const management = ref<GetGameServerPlayerManagementResponse | null>(null)
 const performing = ref(false)
+const playerSearch = ref<string | null>('')
+const presenceFilter = ref<'all' | 'online' | 'offline' | 'unknown'>('all')
 
 const manualAction = ref<PlayerActionDefinition | null>(null)
 const manualPlayerId = ref('')
@@ -50,6 +52,45 @@ const playersState = computed(
 const nativePlayerList = computed(
   () => playersState.value !== GameServerPlayerManagementPlayersState.UNSPECIFIED,
 )
+const normalizedPlayerSearch = computed(() => (playerSearch.value ?? '').trim().toLowerCase())
+const hasPlayerFilters = computed(
+  () =>
+    normalizedPlayerSearch.value !== '' ||
+    (nativePlayerList.value && presenceFilter.value !== 'all'),
+)
+const filteredPlayers = computed(() =>
+  players.value.filter((player) => {
+    const matchesSearch = [player.name, player.actionIdentifier].some((value) =>
+      value.toLowerCase().includes(normalizedPlayerSearch.value),
+    )
+    if (!matchesSearch || !nativePlayerList.value || presenceFilter.value === 'all') {
+      return matchesSearch
+    }
+    if (presenceFilter.value === 'unknown') return player.online === undefined
+    return player.online === (presenceFilter.value === 'online')
+  }),
+)
+const presenceOptions = computed(() => [
+  { label: `All players (${players.value.length})`, value: 'all' },
+  {
+    label: `Online (${players.value.filter((player) => player.online === true).length})`,
+    value: 'online',
+  },
+  {
+    label: `Offline (${players.value.filter((player) => player.online === false).length})`,
+    value: 'offline',
+  },
+  {
+    label: `Unknown (${players.value.filter((player) => player.online === undefined).length})`,
+    value: 'unknown',
+  },
+])
+
+function clearPlayerFilters(): void {
+  playerSearch.value = ''
+  presenceFilter.value = 'all'
+}
+
 const playerListAvailable = computed(
   () =>
     !nativePlayerList.value ||
@@ -270,7 +311,10 @@ function actionTextColor(definition: PlayerActionDefinition | null): string {
 
 watch(
   () => props.gameServerId,
-  () => void loadPlayerManagement(),
+  () => {
+    clearPlayerFilters()
+    void loadPlayerManagement()
+  },
   { immediate: true },
 )
 
@@ -302,7 +346,9 @@ defineExpose({ loadPlayerManagement })
       <section class="players-panel__section">
         <q-card-section class="players-panel__summary">
           <div>
-            <div class="players-panel__card-title">Online players</div>
+            <div class="players-panel__card-title">
+              {{ nativePlayerList ? 'Reported players' : 'Online players' }}
+            </div>
             <div class="players-panel__card-copy">
               {{ players.length }} {{ players.length === 1 ? 'player' : 'players' }} reported
             </div>
@@ -352,25 +398,75 @@ defineExpose({ loadPlayerManagement })
         </q-card-section>
 
         <q-card-section
+          v-if="isOnline && playerListAvailable && (players.length > 0 || hasPlayerFilters)"
+          class="players-panel__filters">
+          <q-input
+            v-model="playerSearch"
+            aria-label="Search reported players"
+            class="players-panel__search"
+            clearable
+            dense
+            label="Name or action ID"
+            outlined>
+            <template #prepend><q-icon aria-hidden="true" name="search" /></template>
+          </q-input>
+          <q-select
+            v-if="nativePlayerList"
+            v-model="presenceFilter"
+            :options="presenceOptions"
+            aria-label="Filter players by reported presence"
+            class="players-panel__presence"
+            dense
+            emit-value
+            label="Reported presence"
+            map-options
+            outlined />
+          <div class="players-panel__filter-summary">
+            <span aria-live="polite" role="status">
+              Showing {{ filteredPlayers.length }} of {{ players.length }} reported players
+            </span>
+            <q-btn
+              v-if="hasPlayerFilters"
+              dense
+              flat
+              label="Clear filters"
+              no-caps
+              @click="clearPlayerFilters" />
+          </div>
+        </q-card-section>
+
+        <q-card-section
           v-if="isOnline && playerListAvailable && players.length === 0"
           class="players-panel__empty">
           <q-icon name="group_off" size="42px" />
-          <div class="players-panel__empty-title">No players online</div>
+          <div class="players-panel__empty-title">
+            {{ nativePlayerList ? 'No players reported' : 'No players online' }}
+          </div>
           <div>
             {{
               nativePlayerList
-                ? 'The game server reports no connected players.'
+                ? 'The game server returned an empty player list.'
                 : 'The server query returned no players.'
             }}
           </div>
         </q-card-section>
 
+        <q-card-section
+          v-else-if="isOnline && playerListAvailable && filteredPlayers.length === 0"
+          class="players-panel__empty">
+          <q-icon aria-hidden="true" name="search_off" size="42px" />
+          <div class="players-panel__empty-title">No players match your filters</div>
+          <div>
+            Try another name or action ID, or clear the filters to show all reported players.
+          </div>
+        </q-card-section>
+
         <q-list
-          v-else-if="playerListAvailable && players.length > 0"
+          v-else-if="playerListAvailable && filteredPlayers.length > 0"
           class="players-panel__list"
           separator>
           <q-item
-            v-for="player in players"
+            v-for="player in filteredPlayers"
             :key="
               player.actionIdentifier ||
               player.platformId ||
@@ -430,8 +526,7 @@ defineExpose({ loadPlayerManagement })
         <q-card-section>
           <div class="players-panel__card-title">Manage by {{ identifierLabel.toLowerCase() }}</div>
           <div class="players-panel__card-copy">
-            Use this for offline players, unbans, and allowlist changes that are not in the online
-            players list.
+            Use this for players not shown above, unbans, and allowlist changes.
           </div>
         </q-card-section>
         <q-card-section class="players-panel__manual-form">
@@ -572,6 +667,33 @@ defineExpose({ loadPlayerManagement })
   padding: var(--xy-space-2xl);
   color: var(--xy-text-muted);
   text-align: center;
+}
+
+.players-panel__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--xy-space-sm);
+}
+
+.players-panel__search {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.players-panel__presence {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.players-panel__filter-summary {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--xy-space-xs);
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-sm);
 }
 
 .players-panel__empty-title {
