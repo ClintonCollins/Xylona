@@ -370,7 +370,15 @@
             map-options
             outlined />
         </div>
+        <div
+          v-if="!historyLoading && !historyError"
+          class="text-caption text-xy-muted q-mb-sm"
+          role="status">
+          <span data-testid="history-scope">{{ historyScope }}</span>
+          <span v-if="historyHasMore"> Older events may be available.</span>
+        </div>
         <q-table
+          v-model:pagination="historyPagination"
           aria-label="Alert history"
           :columns="historyColumns"
           :grid="$q.screen.lt.md"
@@ -452,9 +460,22 @@
           <template #no-data>
             <empty-state
               v-if="!historyLoading && !historyError"
-              description="Alert events will appear here once rules are triggered."
-              icon="history"
-              title="No alert history" />
+              :description="historyEmptyDescription"
+              :icon="historyEntries.length === 0 ? 'history' : 'filter_list_off'"
+              :title="
+                historyEntries.length === 0
+                  ? 'No alert history'
+                  : 'No matching events in loaded history'
+              ">
+              <template v-if="historyEventFilter !== null" #actions>
+                <q-btn
+                  data-testid="clear-history-filter"
+                  flat
+                  label="Clear filter"
+                  no-caps
+                  @click="historyEventFilter = null" />
+              </template>
+            </empty-state>
           </template>
         </q-table>
         <div v-if="historyHasMore" class="row justify-center q-mt-md">
@@ -462,7 +483,7 @@
             :loading="historyLoading"
             color="primary"
             flat
-            label="Load More"
+            label="Load older events"
             no-caps
             @click="loadMoreHistory" />
         </div>
@@ -1202,10 +1223,31 @@ const historyError = ref('')
 const historyEventFilter = ref<AlertEventType | null>(null)
 const historyPageSize = 50
 const historyHasMore = ref(false)
+const historyPagination = ref({ page: 1, rowsPerPage: 10 })
+
+watch(historyEventFilter, () => {
+  historyPagination.value.page = 1
+})
 
 const filteredHistory = computed(() => {
   if (historyEventFilter.value === null) return historyEntries.value
   return historyEntries.value.filter((entry) => entry.eventType === historyEventFilter.value)
+})
+
+const historyScope = computed(() => {
+  const count = historyEntries.value.length
+  const noun = count === 1 ? 'event' : 'events'
+  return historyEventFilter.value === null
+    ? `${count} ${noun} loaded`
+    : `${filteredHistory.value.length} matching of ${count} loaded ${noun}`
+})
+
+const historyEmptyDescription = computed(() => {
+  if (historyEntries.value.length === 0)
+    return 'Alert events will appear here once rules are triggered.'
+  return historyHasMore.value
+    ? 'Older events may contain a match. Load older events or clear the filter.'
+    : 'Try a different event type or clear the filter.'
 })
 
 const historyColumns = [
@@ -1255,6 +1297,7 @@ const historyColumns = [
 ]
 
 async function loadHistory(append: boolean = false): Promise<void> {
+  if (historyLoading.value) return
   historyLoading.value = true
   try {
     const offset = append ? historyEntries.value.length : 0
@@ -1268,6 +1311,7 @@ async function loadHistory(append: boolean = false): Promise<void> {
       historyEntries.value.push(...response.entries)
     } else {
       historyEntries.value = response.entries
+      historyPagination.value.page = 1
     }
     historyHasMore.value = response.entries.length === historyPageSize
     historyError.value = ''

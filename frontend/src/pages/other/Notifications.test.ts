@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AlertRule, NotificationChannel } from '@/proto/shared_pb'
 import {
   AlertEventType,
+  AlertHistoryEntrySchema,
   AlertRuleSchema,
   NotificationChannelSchema,
   NotificationChannelType,
@@ -402,5 +403,113 @@ describe('Notifications', () => {
 
     const targets = wrapper.findAll('.q-table-target').map((cell) => cell.text())
     expect(targets.filter((target) => target === 'Rack A')).toHaveLength(2)
+  })
+})
+
+describe('Notifications loaded history', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  afterEach(() => {
+    const { route, ...fns } = mocks
+    route.query = {}
+    Object.values(fns).forEach((mock) => mock.mockReset())
+  })
+
+  const entries = () =>
+    Array.from({ length: 50 }, (_, i) =>
+      create(AlertHistoryEntrySchema, {
+        id: `event-${i}`,
+        eventType: AlertEventType.CPU_THRESHOLD,
+      }),
+    )
+
+  it('distinguishes a filtered loaded subset and finds an older match', async () => {
+    mocks.getAlertHistory.mockResolvedValueOnce({ entries: entries() })
+    const wrapper = mountNotifications(['alerts.view_history'])
+    await flushPromises()
+    expect(wrapper.get('[data-testid="history-scope"]').text()).toBe('50 events loaded')
+    const filter = wrapper.findComponent('[aria-label="Filter alert history by event type"]')
+    filter.vm.$emit('update:modelValue', AlertEventType.MEMORY_THRESHOLD)
+    await flushPromises()
+    expect(wrapper.get('[data-testid="history-scope"]').text()).toBe(
+      '0 matching of 50 loaded events',
+    )
+    expect(wrapper.text()).toContain('No matching events in loaded history')
+    expect(wrapper.text()).toContain('Older events may contain a match')
+    mocks.getAlertHistory.mockResolvedValueOnce({
+      entries: [
+        create(AlertHistoryEntrySchema, {
+          id: 'older-match',
+          eventType: AlertEventType.MEMORY_THRESHOLD,
+        }),
+      ],
+    })
+    const loadOlder = wrapper.findAll('button').find((b) => b.text() === 'Load older events')
+    expect(loadOlder).toBeDefined()
+    await loadOlder?.trigger('click')
+    await flushPromises()
+    expect(mocks.getAlertHistory.mock.lastCall?.[0].offset).toBe(50)
+    expect(wrapper.get('[data-testid="history-scope"]').text()).toBe(
+      '1 matching of 51 loaded events',
+    )
+    filter.vm.$emit('update:modelValue', AlertEventType.SERVER_CRASH)
+    await flushPromises()
+    await wrapper.get('[data-testid="clear-history-filter"]').trigger('click')
+    expect(wrapper.get('[data-testid="history-scope"]').text()).toBe('51 events loaded')
+    wrapper.unmount()
+  })
+
+  it('keeps genuinely empty history distinct', async () => {
+    const wrapper = mountNotifications(['alerts.view_history'])
+    await flushPromises()
+    expect(wrapper.text()).toContain('No alert history')
+    expect(wrapper.text()).not.toContain('No matching events in loaded history')
+    expect(wrapper.get('[data-testid="history-scope"]').text()).toBe('0 events loaded')
+    wrapper.unmount()
+  })
+
+  it('blocks repeated older-history requests and retries a failed page without losing entries', async () => {
+    mocks.getAlertHistory.mockResolvedValueOnce({ entries: entries() })
+    const wrapper = mountNotifications(['alerts.view_history'])
+    await flushPromises()
+    let rejectRequest!: (error: Error) => void
+    mocks.getAlertHistory.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectRequest = reject
+        }),
+    )
+    const more = wrapper.findAll('button').find((b) => b.text() === 'Load older events')
+    if (!more) throw new Error('Missing older-history button')
+    await more.trigger('click')
+    await more.trigger('click')
+    expect(mocks.getAlertHistory).toHaveBeenCalledTimes(2)
+    rejectRequest(new Error('offline'))
+    await flushPromises()
+    expect(wrapper.text()).toContain('Failed to load alert history')
+    expect(wrapper.find('[data-testid="history-scope"]').exists()).toBe(false)
+    mocks.getAlertHistory.mockResolvedValueOnce({ entries: [] })
+    await more.trigger('click')
+    await flushPromises()
+    expect(mocks.getAlertHistory.mock.lastCall?.[0].offset).toBe(50)
+    expect(wrapper.get('[data-testid="history-scope"]').text()).toBe('50 events loaded')
+    wrapper.unmount()
+  })
+
+  it('resets the page but retains page size when the history filter changes', async () => {
+    const wrapper = mountNotifications(['alerts.view_history'])
+    await flushPromises()
+    const table = wrapper.findComponent('[aria-label="Alert history"]')
+    table.vm.$emit('update:pagination', { page: 4, rowsPerPage: 25 })
+    await flushPromises()
+    wrapper
+      .findComponent('[aria-label="Filter alert history by event type"]')
+      .vm.$emit('update:modelValue', AlertEventType.CPU_THRESHOLD)
+    await flushPromises()
+    expect(table.attributes('pagination')).toBe('[object Object]')
+    expect(table.vm.$attrs.pagination).toEqual({ page: 1, rowsPerPage: 25 })
+    wrapper.unmount()
   })
 })
