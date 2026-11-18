@@ -29,6 +29,8 @@ const gameServerId = computed(() => route.params.id as string)
 const mobileGrid = computed(() => $q.screen?.lt?.md ?? false)
 
 const loading = ref(true)
+const updatingTaskID = ref<string | null>(null)
+const actionsBusy = computed(() => loading.value || updatingTaskID.value !== null)
 const loadError = ref('')
 const tasks = ref<ScheduledTask[]>([])
 // null until the overview loads; a failed load says nothing about backups, and the
@@ -284,12 +286,14 @@ function toggleTaskHistory(taskID: string, rowProps: { expand: boolean }): void 
 }
 
 function openCreateDialog(taskType?: string): void {
+  if (actionsBusy.value) return
   editingTask.value = undefined
   createTaskType.value = taskType
   showFormDialog.value = true
 }
 
 function openEditDialog(task: ScheduledTask): void {
+  if (actionsBusy.value) return
   editingTask.value = task
   showFormDialog.value = true
 }
@@ -306,11 +310,13 @@ async function onFormSubmit(): Promise<void> {
 }
 
 async function toggleEnabled(task: ScheduledTask): Promise<void> {
+  if (actionsBusy.value) return
   if (task.taskType === 'backup' && !task.enabled && backupsBlocked.value) {
     notifyError(backupOverview.value?.disabledReason || 'New backup schedules are unavailable.')
     return
   }
 
+  updatingTaskID.value = task.id
   try {
     const request = create(UpdateScheduledTaskRequestSchema, {
       id: task.id,
@@ -323,14 +329,24 @@ async function toggleEnabled(task: ScheduledTask): Promise<void> {
     if (task.consoleCommand) {
       request.consoleCommand = task.consoleCommand
     }
-    await GetXylonaClient().updateScheduledTask(request)
+    const response = await GetXylonaClient().updateScheduledTask(request)
+    // Keep the confirmed state if the follow-up refresh fails. This is not optimistic.
+    if (response.task) {
+      const updatedTask = response.task
+      tasks.value = tasks.value.map((current) => (current.id === task.id ? updatedTask : current))
+    } else {
+      task.enabled = request.enabled
+    }
     await loadTasks()
   } catch (unknownErr: unknown) {
     notifyConnectError(unknownErr)
+  } finally {
+    updatingTaskID.value = null
   }
 }
 
 function confirmDelete(task: ScheduledTask): void {
+  if (actionsBusy.value) return
   $q.dialog({
     title: 'Delete Scheduled Task',
     message: `Are you sure you want to delete "${task.name}"?`,
@@ -357,6 +373,7 @@ function confirmDelete(task: ScheduledTask): void {
     <page-header title="Scheduled Tasks">
       <template #actions>
         <q-btn
+          :disable="actionsBusy"
           color="primary"
           icon="add"
           label="Add Schedule"
@@ -372,6 +389,7 @@ function confirmDelete(task: ScheduledTask): void {
       <strong>Scheduled tasks could not be loaded.</strong> {{ loadError }}
       <template #action>
         <q-btn
+          :disable="updatingTaskID !== null"
           :loading="loading"
           aria-label="Retry loading scheduled tasks"
           flat
@@ -413,13 +431,22 @@ function confirmDelete(task: ScheduledTask): void {
                 {{ taskTypeLabels[props.row.taskType] ?? props.row.taskType }}
               </div>
             </div>
-            <q-toggle
-              :disable="props.row.taskType === 'backup' && !props.row.enabled && backupsBlocked"
-              :aria-label="`Enable ${props.row.name}`"
-              :model-value="props.row.enabled"
-              color="positive"
-              dense
-              @update:model-value="toggleEnabled(props.row)" />
+            <div class="schedule-card__state">
+              <q-toggle
+                :disable="
+                  actionsBusy ||
+                  (props.row.taskType === 'backup' && !props.row.enabled && backupsBlocked)
+                "
+                :aria-label="`Enable ${props.row.name}`"
+                :model-value="props.row.enabled"
+                color="positive"
+                dense
+                @update:model-value="toggleEnabled(props.row)" />
+              <span v-if="updatingTaskID === props.row.id" class="schedule-saving" role="status">
+                <q-spinner color="primary" size="1rem" />
+                Saving…
+              </span>
+            </div>
           </q-card-section>
 
           <q-separator />
@@ -503,6 +530,7 @@ function confirmDelete(task: ScheduledTask): void {
 
           <q-card-actions align="right">
             <q-btn
+              :disable="actionsBusy"
               :aria-label="`Edit ${props.row.name}`"
               flat
               icon="edit"
@@ -510,6 +538,7 @@ function confirmDelete(task: ScheduledTask): void {
               no-caps
               @click="openEditDialog(props.row)" />
             <q-btn
+              :disable="actionsBusy"
               :aria-label="`Delete ${props.row.name}`"
               color="negative"
               flat
@@ -537,11 +566,18 @@ function confirmDelete(task: ScheduledTask): void {
           <q-td key="timezone" :props="props">{{ props.row.timezone }}</q-td>
           <q-td key="enabled" :props="props">
             <q-toggle
-              :disable="props.row.taskType === 'backup' && !props.row.enabled && backupsBlocked"
+              :disable="
+                actionsBusy ||
+                (props.row.taskType === 'backup' && !props.row.enabled && backupsBlocked)
+              "
               :aria-label="`Enable ${props.row.name}`"
               :model-value="props.row.enabled"
               color="positive"
               @update:model-value="toggleEnabled(props.row)" />
+            <span v-if="updatingTaskID === props.row.id" class="schedule-saving" role="status">
+              <q-spinner color="primary" size="1rem" />
+              Saving…
+            </span>
           </q-td>
           <q-td key="lastResult" :props="props">
             <span
@@ -573,6 +609,7 @@ function confirmDelete(task: ScheduledTask): void {
                 <q-tooltip>{{ props.expand ? 'Hide history' : 'Show history' }}</q-tooltip>
               </q-btn>
               <q-btn
+                :disable="actionsBusy"
                 :aria-label="`Edit ${props.row.name}`"
                 dense
                 flat
@@ -582,6 +619,7 @@ function confirmDelete(task: ScheduledTask): void {
                 <q-tooltip>Edit</q-tooltip>
               </q-btn>
               <q-btn
+                :disable="actionsBusy"
                 :aria-label="`Delete ${props.row.name}`"
                 class="text-error-brighter"
                 dense
@@ -646,6 +684,15 @@ function confirmDelete(task: ScheduledTask): void {
 </template>
 
 <style scoped>
+.schedule-saving {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--xy-space-xs);
+  color: var(--xy-text-muted);
+  font-size: var(--xy-font-size-sm);
+  white-space: nowrap;
+}
+
 .schedules-page {
   flex: 1;
   min-height: 0;
@@ -665,6 +712,13 @@ function confirmDelete(task: ScheduledTask): void {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--xy-space-md);
+}
+
+.schedule-card__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .schedule-card__title {
