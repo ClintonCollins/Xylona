@@ -12,6 +12,8 @@ import GameServerSchedules from './GameServerSchedules.vue'
 
 const mocks = vi.hoisted(() => ({
   getBackupOverview: vi.fn(),
+  updateScheduledTask: vi.fn(),
+  dialog: vi.fn(),
   getScheduledTaskLogs: vi.fn(),
   listScheduledTasks: vi.fn(),
   mobile: true,
@@ -26,7 +28,7 @@ vi.mock('quasar', async () => {
     ...actual,
     Notify: { create: mocks.notify },
     useQuasar: () => ({
-      dialog: vi.fn(),
+      dialog: mocks.dialog,
       screen: {
         lt: {
           get md() {
@@ -49,6 +51,7 @@ vi.mock('@/utils/shared', () => ({
     getGameServerBackupOverview: mocks.getBackupOverview,
     getScheduledTaskLogs: mocks.getScheduledTaskLogs,
     listScheduledTasks: mocks.listScheduledTasks,
+    updateScheduledTask: mocks.updateScheduledTask,
   }),
 }))
 
@@ -61,6 +64,8 @@ describe('GameServerSchedules', () => {
     mocks.getScheduledTaskLogs.mockReset()
     mocks.listScheduledTasks.mockReset()
     mocks.notify.mockReset()
+    mocks.updateScheduledTask.mockReset()
+    mocks.dialog.mockReset()
   })
 
   it('loads latest results and fetches recent history only on demand', async () => {
@@ -264,5 +269,174 @@ describe('GameServerSchedules', () => {
     expect(wrapper.text()).toContain('Scheduled tasks could not be loaded.')
     expect(wrapper.text()).toContain('node unreachable')
     expect(wrapper.findComponent({ name: 'EmptyState' }).exists()).toBe(false)
+  })
+  for (const mobile of [true, false]) {
+    it(`shows pending toggle feedback and blocks overlapping actions on ${mobile ? 'mobile' : 'desktop'}`, async () => {
+      mocks.mobile = mobile
+      const task = create(ScheduledTaskSchema, {
+        id: 'restart-task',
+        name: 'Nightly restart',
+        taskType: 'restart',
+        cronExpression: '0 3 * * *',
+        timezone: 'UTC',
+        enabled: true,
+      })
+      mocks.listScheduledTasks.mockResolvedValue(
+        create(ListScheduledTasksResponseSchema, { tasks: [task] }),
+      )
+      mocks.getBackupOverview.mockResolvedValue(
+        create(GetGameServerBackupOverviewResponseSchema, {}),
+      )
+      let finishUpdate!: () => void
+      mocks.updateScheduledTask.mockImplementation(
+        () =>
+          new Promise<object>((resolve) => {
+            finishUpdate = () => resolve({})
+          }),
+      )
+      const wrapper = shallowMount(GameServerSchedules, {
+        global: {
+          renderStubDefaultSlot: true,
+          stubs: {
+            QTable: {
+              props: ['rows', 'grid'],
+              template: `<div><template v-for="row in rows" :key="row.id"><slot :name="grid ? 'item' : 'body'" :row="row" :expand="false" /></template></div>`,
+            },
+            QToggle: {
+              name: 'QToggle',
+              props: ['disable', 'modelValue'],
+              template: `<button :disabled="disable" @click="$emit('update:modelValue', !modelValue)">Toggle</button>`,
+            },
+            QBtn: {
+              name: 'QBtn',
+              props: ['disable', 'label'],
+              template: '<button :disabled="disable">{{ label }}</button>',
+            },
+          },
+        },
+      })
+      await flushPromises()
+      const vm = wrapper.vm as unknown as {
+        tasks: (typeof task)[]
+        toggleEnabled: (task: typeof task) => Promise<void>
+        openEditDialog: (task: typeof task) => void
+        confirmDelete: (task: typeof task) => void
+      }
+      const displayedTask = vm.tasks[0]
+      if (!displayedTask) throw new Error('Expected a displayed schedule')
+      const toggle = wrapper.findComponent({ name: 'QToggle' })
+      toggle.vm.$emit('update:modelValue', false)
+      await flushPromises()
+      expect(toggle.props('disable')).toBe(true)
+      expect(toggle.props('modelValue')).toBe(true)
+      expect(wrapper.text()).toContain('Saving…')
+      await vm.toggleEnabled(displayedTask)
+      vm.openEditDialog(displayedTask)
+      vm.confirmDelete(displayedTask)
+      expect(mocks.updateScheduledTask).toHaveBeenCalledTimes(1)
+      expect(mocks.dialog).not.toHaveBeenCalled()
+      expect(wrapper.findComponent({ name: 'ScheduledTaskForm' }).props('showDialog')).toBe(false)
+      for (const label of ['Edit Nightly restart', 'Delete Nightly restart']) {
+        expect(
+          wrapper
+            .findAllComponents({ name: 'QBtn' })
+            .find((button) => button.attributes('aria-label') === label)
+            ?.props('disable'),
+        ).toBe(true)
+      }
+      let finishRefresh!: (value: unknown) => void
+      mocks.listScheduledTasks.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishRefresh = resolve
+          }),
+      )
+      finishUpdate()
+      await flushPromises()
+      expect(toggle.props('modelValue')).toBe(false)
+      expect(toggle.props('disable')).toBe(true)
+      expect(wrapper.text()).toContain('Saving…')
+      finishRefresh(
+        create(ListScheduledTasksResponseSchema, { tasks: [{ ...task, enabled: false }] }),
+      )
+      await flushPromises()
+      expect(toggle.props('disable')).toBe(false)
+      expect(wrapper.text()).not.toContain('Saving…')
+      wrapper.unmount()
+    })
+  }
+
+  it('keeps the original value after an update failure and allows retry', async () => {
+    const task = create(ScheduledTaskSchema, { id: 'restart-task', name: 'Restart', enabled: true })
+    mocks.listScheduledTasks.mockResolvedValue(
+      create(ListScheduledTasksResponseSchema, { tasks: [task] }),
+    )
+    mocks.getBackupOverview.mockResolvedValue(create(GetGameServerBackupOverviewResponseSchema, {}))
+    mocks.updateScheduledTask
+      .mockRejectedValueOnce(new Error('update unavailable'))
+      .mockResolvedValue({})
+    const wrapper = shallowMount(GameServerSchedules)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      tasks: (typeof task)[]
+      updatingTaskID: string | null
+      loadError: string
+      toggleEnabled: (task: typeof task) => Promise<void>
+    }
+    const displayedTask = vm.tasks[0]
+    if (!displayedTask) throw new Error('Expected a displayed schedule')
+    await vm.toggleEnabled(displayedTask)
+    expect(displayedTask.enabled).toBe(true)
+    expect(vm.updatingTaskID).toBe(null)
+    expect(mocks.listScheduledTasks).toHaveBeenCalledTimes(1)
+    expect(mocks.notify).toHaveBeenCalledWith(expect.objectContaining({ type: 'xylona-error' }))
+    await vm.toggleEnabled(displayedTask)
+    expect(mocks.updateScheduledTask).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
+  })
+
+  it('retains a confirmed toggle when refreshing fails and uses it for the next action', async () => {
+    const task = create(ScheduledTaskSchema, {
+      id: 'restart-task',
+      name: 'Restart',
+      enabled: true,
+      nextRunAt: { seconds: 1795050000n, nanos: 0 },
+    })
+    mocks.listScheduledTasks
+      .mockResolvedValueOnce(create(ListScheduledTasksResponseSchema, { tasks: [task] }))
+      .mockRejectedValue(new Error('refresh unavailable'))
+    mocks.getBackupOverview.mockResolvedValue(create(GetGameServerBackupOverviewResponseSchema, {}))
+    mocks.updateScheduledTask.mockImplementation((request: { enabled: boolean }) => ({
+      task: create(ScheduledTaskSchema, {
+        ...task,
+        enabled: request.enabled,
+        timezone: 'UTC',
+        nextRunAt: undefined,
+      }),
+    }))
+    const wrapper = shallowMount(GameServerSchedules)
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      tasks: (typeof task)[]
+      updatingTaskID: string | null
+      loadError: string
+      toggleEnabled: (task: typeof task) => Promise<void>
+    }
+    const displayedTask = vm.tasks[0]
+    if (!displayedTask) throw new Error('Expected a displayed schedule')
+    await vm.toggleEnabled(displayedTask)
+    expect(vm.tasks[0]?.enabled).toBe(false)
+    expect(vm.tasks[0]?.timezone).toBe('UTC')
+    expect(vm.tasks[0]?.nextRunAt).toBeUndefined()
+    expect(vm.updatingTaskID).toBe(null)
+    expect(vm.loadError).toContain('refresh unavailable')
+    const confirmedTask = vm.tasks[0]
+    if (!confirmedTask) throw new Error('Expected the confirmed schedule')
+    await vm.toggleEnabled(confirmedTask)
+    expect(mocks.updateScheduledTask.mock.calls.map(([request]) => request.enabled)).toEqual([
+      false,
+      true,
+    ])
+    wrapper.unmount()
   })
 })
