@@ -163,6 +163,62 @@ describe('ConfigSchemaEditor managed sources', () => {
     expect(savedSchema.properties['server-port']?.['x-managed']?.source).toBe('game_server.port')
   })
 
+  it('round-trips explicit fractional bounds alongside legacy and integer bounds', () => {
+    const properties = {
+      expRate: { type: 'number', 'x-number-minimum': 0.25, maximum: 4 },
+      spawnRate: { type: 'number', 'x-number-maximum': 0 },
+      players: { type: 'integer', minimum: 1, maximum: 16 },
+    }
+    const wrapper = shallowMount(ConfigSchemaEditor, {
+      props: { schema: { type: 'object', properties } },
+      global: { stubs: { ConfigSchemaFieldCard: ConfigSchemaFieldCardStub } },
+    })
+    expect(wrapper.vm.buildSchema()?.properties).toMatchObject(properties)
+  })
+
+  it('blocks reversed effective bounds and removes both minimum keys when cleared', async () => {
+    const BoundInput = defineComponent({
+      props: {
+        label: { type: String, default: '' },
+        modelValue: { type: [String, Number], default: null },
+      },
+      emits: ['update:modelValue'],
+      template: `<input :aria-label="label" :value="modelValue"
+        @input="$emit('update:modelValue', $event.target.value)" />`,
+    })
+    const wrapper = shallowMount(ConfigSchemaEditor, {
+      props: {
+        schema: {
+          type: 'object',
+          properties: {
+            expRate: { type: 'number', 'x-number-minimum': 4.25, minimum: 1, maximum: 4 },
+          },
+        },
+      },
+      global: {
+        stubs: {
+          ConfigSchemaFieldCard: false,
+          'q-input': BoundInput,
+          'q-select': { inheritAttrs: false, template: '<div />' },
+        },
+        renderStubDefaultSlot: true,
+      },
+    })
+    expect(wrapper.vm.buildSchema()).toBeNull()
+    expect(mocks.notifyError).toHaveBeenCalledWith('Minimum cannot exceed maximum for "expRate".')
+
+    await nextTick()
+    await wrapper.get('.field-card-summary').trigger('click')
+    const minimum = wrapper.get<HTMLInputElement>('input[aria-label="Minimum"]')
+    expect(minimum.element.value).toBe('4.25')
+    await minimum.setValue('')
+    expect(wrapper.vm.buildSchema()?.properties?.expRate).toEqual({
+      type: 'number',
+      maximum: 4,
+      'x-order': 0,
+    })
+  })
+
   it('tracks unsaved edits against the loaded schema', async () => {
     const RemovableFieldCardStub = defineComponent({
       emits: ['remove'],

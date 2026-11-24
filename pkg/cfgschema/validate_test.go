@@ -350,3 +350,30 @@ func TestBuildFieldData_EnumLabels(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateConfigSchemasDecimalBounds(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		property  string
+		wantError string
+	}{
+		{name: "decimal and legacy upper bound", property: `{"type":"number","x-number-minimum":0.25,"maximum":4}`},
+		{name: "reversed effective bounds", property: `{"type":"number","minimum":2,"x-number-maximum":1.5}`, wantError: "minimum cannot exceed maximum"},
+		{name: "decimal on integer", property: `{"type":"integer","x-number-minimum":0.25}`, wantError: "only supported for type number"},
+		{name: "non-numeric bound", property: `{"type":"number","x-number-minimum":"0.25"}`, wantError: "invalid x-number-minimum"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			schema := `[{"path":"settings.json","format":"json","category":"Gameplay","schema":{"type":"object","properties":{"multiplier":` + tc.property + `}}}]`
+			got := ValidateConfigSchemas(schema)
+			if tc.wantError == "" {
+				if len(got) != 0 {
+					t.Fatalf("unexpected validation errors: %v", got)
+				}
+				return
+			}
+			if len(got) != 1 || !strings.Contains(got[0], tc.wantError) {
+				t.Fatalf("validation errors = %v, want %q", got, tc.wantError)
+			}
+		})
+	}
+}

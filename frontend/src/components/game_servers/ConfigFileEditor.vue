@@ -274,10 +274,11 @@
                 :error="serverError(field.key) !== undefined ? true : undefined"
                 :error-message="serverError(field.key)"
                 :hint="getNumberHint(field)"
-                :max="field.maximum ?? undefined"
-                :min="field.minimum ?? undefined"
+                :max="getMaximum(field)"
+                :min="getMinimum(field)"
                 :model-value="getFieldValue(field)"
                 :rules="fieldRules(field)"
+                :step="field.fieldType === 'number' ? 'any' : 1"
                 class="inline-input"
                 dense
                 input-class="font-mono"
@@ -798,19 +799,25 @@ function toggleReveal(key: string) {
   if (!revealedKeys.delete(key)) revealedKeys.add(key)
 }
 
+function getMinimum(field: ConfigFieldData): number | bigint | undefined {
+  return field.fieldType === 'number' ? (field.numberMinimum ?? field.minimum) : field.minimum
+}
+
+function getMaximum(field: ConfigFieldData): number | bigint | undefined {
+  return field.fieldType === 'number' ? (field.numberMaximum ?? field.maximum) : field.maximum
+}
+
 function getNumberHint(field: ConfigFieldData): string | undefined {
-  const hasMin = field.minimum !== undefined
-  const hasMax = field.maximum !== undefined
-  if (hasMin && hasMax) {
-    return `${field.minimum} – ${field.maximum}`
-  }
-  if (hasMin) {
-    return `Min: ${field.minimum}`
-  }
-  if (hasMax) {
-    return `Max: ${field.maximum}`
-  }
+  const min = getMinimum(field)
+  const max = getMaximum(field)
+  if (min !== undefined && max !== undefined) return `${min} – ${max}`
+  if (min !== undefined) return `Min: ${min}`
+  if (max !== undefined) return `Max: ${max}`
   return undefined
+}
+
+function parseBoundValue(field: ConfigFieldData, value: string): number | bigint {
+  return field.fieldType === 'integer' && /^[+-]?\d+$/.test(value) ? BigInt(value) : Number(value)
 }
 
 type FieldRule = (val: string) => true | string
@@ -825,13 +832,13 @@ function fieldRules(field: ConfigFieldData): FieldRule[] {
   }
   // Empty optional values are left out of the file, so limits skip them.
   if (isNumberField(field)) {
-    if (field.minimum !== undefined) {
-      const min = Number(field.minimum)
-      rules.push((val) => val === '' || Number(val) >= min || `Minimum: ${min}`)
+    const min = getMinimum(field)
+    const max = getMaximum(field)
+    if (min !== undefined) {
+      rules.push((val) => val === '' || parseBoundValue(field, val) >= min || `Minimum: ${min}`)
     }
-    if (field.maximum !== undefined) {
-      const max = Number(field.maximum)
-      rules.push((val) => val === '' || Number(val) <= max || `Maximum: ${max}`)
+    if (max !== undefined) {
+      rules.push((val) => val === '' || parseBoundValue(field, val) <= max || `Maximum: ${max}`)
     }
   } else if (field.maxLength) {
     const max = field.maxLength

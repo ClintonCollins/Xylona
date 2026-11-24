@@ -3,6 +3,7 @@ package cfgschema
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -29,6 +30,8 @@ type SchemaProperty struct {
 	EnumLabels    []string           `json:"x-enum-labels"`
 	Minimum       *int64             `json:"minimum"`
 	Maximum       *int64             `json:"maximum"`
+	NumberMinimum *float64           `json:"x-number-minimum,omitempty"`
+	NumberMaximum *float64           `json:"x-number-maximum,omitempty"`
 	MaxLength     *int32             `json:"maxLength"`
 	Required      bool               `json:"required"`
 	AllowMultiple bool               `json:"x-allow-multiple"`
@@ -166,6 +169,8 @@ type FieldData struct {
 	EnumLabels        []string
 	Minimum           *int64
 	Maximum           *int64
+	NumberMinimum     *float64
+	NumberMaximum     *float64
 	MaxLength         *int32
 	Required          bool
 	AllowMultiple     bool
@@ -392,6 +397,8 @@ func buildFieldData(
 		EnumLabels:    prop.EnumLabels,
 		Minimum:       prop.Minimum,
 		Maximum:       prop.Maximum,
+		NumberMinimum: prop.NumberMinimum,
+		NumberMaximum: prop.NumberMaximum,
 		MaxLength:     prop.MaxLength,
 		Required:      prop.Required,
 		AllowMultiple: prop.AllowMultiple,
@@ -612,6 +619,29 @@ func validateFieldValue(field string, value string, prop SchemaProperty) []Valid
 				Message: fmt.Sprintf("value %d exceeds maximum %d", n, *prop.Maximum),
 			})
 		}
+	case "number":
+		// Explicit decimal bounds opt into server-side range validation. Keep
+		// previously unvalidated number fields unchanged.
+		if prop.NumberMinimum == nil && prop.NumberMaximum == nil {
+			break
+		}
+		n, errParse := strconv.ParseFloat(value, 64)
+		if errParse != nil || math.IsNaN(n) || math.IsInf(n, 0) {
+			return []ValidationError{{Field: field, Message: "value must be a finite number"}}
+		}
+		minimum, maximum := prop.effectiveNumberBounds()
+		if minimum != nil && n < *minimum {
+			errs = append(errs, ValidationError{
+				Field:   field,
+				Message: fmt.Sprintf("value %g is below minimum %g", n, *minimum),
+			})
+		}
+		if maximum != nil && n > *maximum {
+			errs = append(errs, ValidationError{
+				Field:   field,
+				Message: fmt.Sprintf("value %g exceeds maximum %g", n, *maximum),
+			})
+		}
 	case "string":
 		if prop.MaxLength != nil && helpers.ClampInt32FromInt(len(value)) > *prop.MaxLength {
 			errs = append(errs, ValidationError{
@@ -621,4 +651,17 @@ func validateFieldValue(field string, value string, prop SchemaProperty) []Valid
 		}
 	}
 	return errs
+}
+
+// effectiveNumberBounds preserves the legacy bound on either side that does
+// not have an explicit decimal replacement.
+func (prop SchemaProperty) effectiveNumberBounds() (minimum, maximum *float64) {
+	minimum, maximum = prop.NumberMinimum, prop.NumberMaximum
+	if minimum == nil && prop.Minimum != nil {
+		minimum = new(float64(*prop.Minimum))
+	}
+	if maximum == nil && prop.Maximum != nil {
+		maximum = new(float64(*prop.Maximum))
+	}
+	return minimum, maximum
 }

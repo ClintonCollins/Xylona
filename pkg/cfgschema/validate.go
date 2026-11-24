@@ -2,6 +2,7 @@ package cfgschema
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -202,9 +203,14 @@ func validateSchemaProperties(prefix string, schema json.RawMessage) []string {
 
 	var schemaDef struct {
 		Properties map[string]struct {
-			Enum       []any    `json:"enum"`
-			EnumLabels []string `json:"x-enum-labels"`
-			Managed    *struct {
+			Type          string          `json:"type"`
+			Enum          []any           `json:"enum"`
+			EnumLabels    []string        `json:"x-enum-labels"`
+			Minimum       json.RawMessage `json:"minimum"`
+			Maximum       json.RawMessage `json:"maximum"`
+			NumberMinimum json.RawMessage `json:"x-number-minimum"`
+			NumberMaximum json.RawMessage `json:"x-number-maximum"`
+			Managed       *struct {
 				Source string `json:"source"`
 			} `json:"x-managed"`
 		} `json:"properties"`
@@ -216,6 +222,10 @@ func validateSchemaProperties(prefix string, schema json.RawMessage) []string {
 
 	var errs []string
 	for propKey, prop := range schemaDef.Properties {
+		errBounds := validateDecimalBounds(prop.Type, prop.Minimum, prop.Maximum, prop.NumberMinimum, prop.NumberMaximum)
+		if errBounds != nil {
+			errs = append(errs, fmt.Sprintf("%s: property %q: %v", prefix, propKey, errBounds))
+		}
 		if prop.Managed != nil && !isKnownManagedSource(prop.Managed.Source) {
 			errs = append(errs, fmt.Sprintf(
 				"%s: unknown managed field source %q for key %q",
@@ -233,6 +243,41 @@ func validateSchemaProperties(prefix string, schema json.RawMessage) []string {
 		}
 	}
 	return errs
+}
+
+// Decimal bound extensions are optional and do not change validation of
+// existing schemas that use only the legacy integer bound fields.
+func validateDecimalBounds(fieldType string, minimum, maximum, numberMinimum, numberMaximum json.RawMessage) error {
+	if len(numberMinimum) == 0 && len(numberMaximum) == 0 {
+		return nil
+	}
+	if fieldType != "number" {
+		return errors.New("decimal bounds are only supported for type number")
+	}
+	var prop SchemaProperty
+	for _, bound := range []struct {
+		key   string
+		value json.RawMessage
+		dst   any
+	}{
+		{"minimum", minimum, &prop.Minimum},
+		{"maximum", maximum, &prop.Maximum},
+		{"x-number-minimum", numberMinimum, &prop.NumberMinimum},
+		{"x-number-maximum", numberMaximum, &prop.NumberMaximum},
+	} {
+		if len(bound.value) == 0 {
+			continue
+		}
+		errDecode := json.Unmarshal(bound.value, bound.dst)
+		if errDecode != nil {
+			return fmt.Errorf("invalid %s: %w", bound.key, errDecode)
+		}
+	}
+	lower, upper := prop.effectiveNumberBounds()
+	if lower != nil && upper != nil && *lower > *upper {
+		return errors.New("minimum cannot exceed maximum")
+	}
+	return nil
 }
 
 func validateSchemaGroups(prefix string, schema json.RawMessage) []string {

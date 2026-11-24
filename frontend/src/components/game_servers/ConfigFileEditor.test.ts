@@ -49,12 +49,13 @@ const InputStub = defineComponent({
   props: {
     modelValue: { type: [String, Number], default: '' },
     errorMessage: { type: String, default: undefined },
+    rules: { type: Array as () => ((value: string) => true | string)[], default: () => [] },
     type: { type: String, default: 'text' },
   },
   emits: ['update:modelValue'],
   template: `<div class="input-stub" :data-error="errorMessage">
       <input :aria-label="$attrs['aria-label']" :autocomplete="$attrs.autocomplete" :type="type"
-        :value="modelValue"
+        :value="modelValue" :min="$attrs.min" :max="$attrs.max" :step="$attrs.step"
         @input="$emit('update:modelValue', $event.target.value)" />
       <slot name="append" />
     </div>`,
@@ -305,6 +306,27 @@ describe('ConfigFileEditor', () => {
     expect(wrapper.find('[data-test="config-row-ExpRate"]').classes()).not.toContain(
       'setting-edited',
     )
+  })
+
+  it('uses a fractional bound over its legacy value and falls back for the other bound', () => {
+    const wrapper = mountEditor({
+      fields: [
+        field({
+          key: 'ExpRate',
+          fieldType: 'number',
+          minimum: 1n,
+          maximum: 4n,
+          numberMinimum: 0.25,
+        }),
+      ],
+    })
+    const row = wrapper.get('[data-test="config-row-ExpRate"]')
+    const input = row.get('input')
+    expect(input.attributes()).toMatchObject({ min: '0.25', max: '4', step: 'any' })
+    const rules = row.getComponent(InputStub).props('rules')
+    expect(rules.map((rule) => rule('0.25'))).toEqual([true, true])
+    expect(rules.map((rule) => rule('0.24'))).toEqual(['Minimum: 0.25', true])
+    expect(rules.map((rule) => rule('4.01'))).toEqual([true, 'Maximum: 4'])
   })
 
   it('points a search that only matches advanced fields at them', async () => {

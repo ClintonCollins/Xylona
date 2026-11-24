@@ -132,22 +132,28 @@
 
                 <q-input
                   v-if="field.type === 'integer' || field.type === 'number'"
-                  v-model.number="field.minimum"
+                  :model-value="
+                    field.type === 'number' ? (field.numberMinimum ?? field.minimum) : field.minimum
+                  "
+                  :step="field.type === 'number' ? 'any' : 1"
                   class="col"
                   dense
                   label="Minimum"
                   outlined
                   type="number"
-                  @update:model-value="emitUpdate" />
+                  @update:model-value="(value) => updateBound('minimum', value)" />
                 <q-input
                   v-if="field.type === 'integer' || field.type === 'number'"
-                  v-model.number="field.maximum"
+                  :model-value="
+                    field.type === 'number' ? (field.numberMaximum ?? field.maximum) : field.maximum
+                  "
+                  :step="field.type === 'number' ? 'any' : 1"
                   class="col"
                   dense
                   label="Maximum"
                   outlined
                   type="number"
-                  @update:model-value="emitUpdate" />
+                  @update:model-value="(value) => updateBound('maximum', value)" />
 
                 <q-input
                   v-if="field.type === 'string'"
@@ -233,6 +239,8 @@ export interface SchemaFieldModel {
   required: boolean
   minimum: number | null
   maximum: number | null
+  numberMinimum: number | null
+  numberMaximum: number | null
   maxLength: number | null
   enumOptionsStr: string
   enumLabelsStr: string
@@ -282,11 +290,26 @@ const typeOptions = [
   { label: 'Boolean', value: 'boolean' },
 ]
 
+function updateBound(bound: 'minimum' | 'maximum', value: string | number | null) {
+  const parsed = value === '' || value === null ? null : Number(value)
+  if (field.type === 'number') {
+    field[bound === 'minimum' ? 'numberMinimum' : 'numberMaximum'] = parsed
+    field[bound] = null
+  } else {
+    field[bound] = parsed
+  }
+  emitUpdate()
+}
+
 function handleTypeChange() {
   // Reset type-specific fields
   if (field.type !== 'integer' && field.type !== 'number') {
     field.minimum = null
     field.maximum = null
+  }
+  if (field.type !== 'number') {
+    field.numberMinimum = null
+    field.numberMaximum = null
   }
   if (field.type !== 'string') {
     field.maxLength = null

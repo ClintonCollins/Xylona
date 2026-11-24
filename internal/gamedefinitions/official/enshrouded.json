@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:595b9d6e67f0736dfd1ab404a332321b5c915bb723cb70d669972dfe53642171",
+  "content_hash": "sha256:0e23a286727466cda91423ff5c2feb44b3f6eedefa64cf1625023a23bee6341b",
   "game": {
     "id": "enshrouded",
     "name": "Enshrouded",
@@ -177,6 +177,7 @@
             "x-group": "player",
             "x-order": 0,
             "default": 1,
+            "x-number-minimum": 0.25,
             "maximum": 4
           },
           "gameSettings.playerManaFactor": {
@@ -186,6 +187,7 @@
             "x-group": "player",
             "x-order": 1,
             "default": 1,
+            "x-number-minimum": 0.25,
             "maximum": 4
           },
           "gameSettings.playerStaminaFactor": {
@@ -195,6 +197,7 @@
             "x-group": "player",
             "x-order": 2,
             "default": 1,
+            "x-number-minimum": 0.25,
             "maximum": 4
           },
           "gameSettings.playerBodyHeatFactor": {

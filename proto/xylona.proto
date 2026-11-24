@@ -1244,6 +1244,8 @@ message ConfigFieldData {
   string managed_source = 17;
   repeated string enum_labels = 18;
   optional int32 order = 19;
+  optional double number_minimum = 20;
+  optional double number_maximum = 21;
 }
 
 message AdvancedField {
