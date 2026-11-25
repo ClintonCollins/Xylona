@@ -136,6 +136,7 @@
             :fields="fileFields"
             :file-path="selectedFilePath"
             :format="selectedFileFormat"
+            :game-id="gameId"
             :generating="generating"
             :is-missing="selectedFileIsMissing"
             :saving="saving"
@@ -267,7 +268,7 @@ async function loadGameServerIdentity() {
     canViewFiles.value =
       response.gameServer?.effectivePermissions?.includes('game_server.files.view') ?? false
   } catch (unknownErr: unknown) {
-    // Only the empty-state links and the 7 Days to Die inspector depend on it.
+    // Configuration can still be edited in the file’s native units without game identity.
     console.error(ConnectError.from(unknownErr))
   }
 }
