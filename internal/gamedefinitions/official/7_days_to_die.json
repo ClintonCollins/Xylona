@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:0443579e086158cb638440e7657777466b1ada8e0d903ec291bf2f58ca18d4df",
+  "content_hash": "sha256:27834ca2dc676c858f963af41cb577e25ecaa45ffc042ac489b03fba1cbc3f79",
   "game": {
     "id": "7_days_to_die",
     "name": "7 Days to Die",
@@ -58,6 +58,7 @@
       {"command":"say","syntax":"say <message>","summary":"Broadcasts a message.","category":"Messaging","keywords":["broadcast","message"],"arguments":[{"name":"message","description":"Message to send.","required":true,"repeatable":true,"valueType":"text"}],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
       {"command":"kick","syntax":"kick <player entity id> [reason]","summary":"Disconnects a player.","category":"Moderation","keywords":["kick","player"],"arguments":[{"name":"player entity id","description":"Entity ID from listplayers.","required":true,"valueType":"player ID"},{"name":"reason","description":"Optional reason.","repeatable":true,"valueType":"text"}],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
       {"command":"ban add","syntax":"ban add <player entity id> [duration] [reason]","summary":"Bans a player.","category":"Moderation","keywords":["ban","player"],"arguments":[{"name":"player entity id","description":"Entity ID from listplayers.","required":true,"valueType":"player ID"},{"name":"duration","description":"Optional ban duration.","valueType":"duration"},{"name":"reason","description":"Optional ban reason.","repeatable":true,"valueType":"text"}],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_CAUTION"},
+      {"command":"getsandboxoptions","syntax":"getsandboxoptions","summary":"Shows the running server's sandbox gameplay settings without changing them.","category":"Server","aliases":["gso"],"keywords":["sandbox","gameplay","preset","config"],"documentationUrl":"https://support.7daystodie.com/hc/en-us/articles/54989258476820-V3-4-0-Stable","availability":"7 Days to Die 3.x dedicated-server console; requires permission to run the command.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
       {"command":"saveworld","syntax":"saveworld","summary":"Saves the current world.","category":"Server","keywords":["save","backup"],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_NONE"},
       {"command":"shutdown","syntax":"shutdown [seconds] [message]","summary":"Stops the server, optionally after a delay.","category":"Server","keywords":["shutdown","stop"],"arguments":[{"name":"seconds","description":"Optional delay.","valueType":"integer"},{"name":"message","description":"Optional shutdown notice.","repeatable":true,"valueType":"text"}],"documentationUrl":"https://www.7dtd.tools/console-commands","availability":"Dedicated-server console.","risk":"GAME_CONSOLE_COMMAND_RISK_DESTRUCTIVE"}
     ]
@@ -550,7 +551,7 @@
             "type": "string",
             "title": "Sandbox code",
             "default": "AAAJABJACJADJARFBNC",
-            "description": "7 Days to Die 3.0 code containing the server's sandbox gameplay options.",
+            "description": "Preset code from the in-game Sandbox Options menu. Game updates can make older codes fall back to defaults. After restarting, use getsandboxoptions (gso) in the server console to check the applied settings.",
             "x-group": "Game Rules",
             "x-order": 0
           },
