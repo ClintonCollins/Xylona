@@ -45,6 +45,18 @@ func TestEnshroudedDefinition(t *testing.T) {
 		t.Fatalf("config schema count = %d, want 1", len(schemas))
 	}
 	entry := schemas[0]
+	for _, key := range []string{
+		"gameSettings.playerHealthFactor",
+		"gameSettings.playerManaFactor",
+		"gameSettings.playerStaminaFactor",
+	} {
+		prop := entry.Schema.Properties[key]
+		if prop.Type != "number" || prop.NumberMinimum == nil || *prop.NumberMinimum != 0.25 ||
+			prop.Maximum == nil || *prop.Maximum != 4 {
+			t.Errorf("%q does not declare the official numeric range 0.25–4", key)
+		}
+	}
+
 	parser := &cfgparse.JSONParser{}
 	root, errConfig := parser.Parse([]byte(enshroudedConfig))
 	if errConfig != nil {

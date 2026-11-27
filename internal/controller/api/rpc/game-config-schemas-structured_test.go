@@ -194,6 +194,88 @@ func TestUpdateGameServerConfigFileWritesStructuredJSON(t *testing.T) {
 	}
 }
 
+func TestConfigFileDecimalBoundsRoundTrip(t *testing.T) {
+	fixture := newRBACRPCFixture(t)
+	const schema = `[{"path":"multipliers.json","format":"json","category":"Gameplay","schema":{
+	  "type":"object","properties":{"settings.health":{"type":"number","x-number-minimum":0.25,"maximum":4}}
+	}}]`
+	updateGameConfigSchemasForRemoteParity(t, fixture, schema)
+	insertRemoteNodeForParityTests(t, fixture, "node-remote")
+	const serverID = "server-remote-json-config"
+	const configPath = "multipliers.json"
+	const key = "settings.health"
+	insertRemoteServerForParityTests(t, fixture, serverID)
+	remoteClient := &nodeclient.FakeNodeClient{
+		NodeID:         "node-remote",
+		ReadFileResult: []byte(`{"settings":{"health":1},"untouched":"saved"}`),
+	}
+	fixture.service.nodeRegistry = testParityRegistry(&nodeclient.FakeNodeClient{NodeID: "node-local"}, remoteClient)
+
+	getRequest := connect.NewRequest(&xylona.GetGameServerConfigFileRequest{
+		GameServerId: serverID,
+		FilePath:     configPath,
+	})
+	addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, getRequest, "user-owner")
+	read, errRead := fixture.service.GetGameServerConfigFile(t.Context(), getRequest)
+	if errRead != nil {
+		t.Fatalf("GetGameServerConfigFile() error = %v", errRead)
+	}
+	field := configFieldsByKey(read.Msg.GetFields())[key]
+	if field.GetValue() != "1" || field.GetNumberMinimum() != 0.25 || field.GetMaximum() != 4 {
+		t.Fatalf("field = %v, want health value 1 and bounds 0.25–4", field)
+	}
+
+	for _, tc := range []struct {
+		name   string
+		value  string
+		want   float64
+		reject bool
+	}{
+		{name: "inclusive minimum", value: "0.25", want: 0.25},
+		{name: "inclusive maximum", value: "4", want: 4},
+		{name: "below minimum", value: "0.249", reject: true},
+		{name: "above maximum", value: "4.001", reject: true},
+		{name: "not finite", value: "NaN", reject: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			remoteClient.WriteFileCalls = nil
+			request := connect.NewRequest(&xylona.UpdateGameServerConfigFileRequest{
+				GameServerId: serverID,
+				FilePath:     configPath,
+				Fields:       []*xylona.ConfigFieldData{{Key: key, Value: tc.value}},
+			})
+			addSessionCookieHeader(t, fixture.conn, fixture.secureCookie, request, "user-owner")
+			saved, errSave := fixture.service.UpdateGameServerConfigFile(t.Context(), request)
+			if errSave != nil {
+				t.Fatalf("UpdateGameServerConfigFile() error = %v", errSave)
+			}
+			if tc.reject {
+				if saved.Msg.GetSuccess() || len(remoteClient.WriteFileCalls) != 0 {
+					t.Fatal("invalid edited multiplier was written")
+				}
+				if errs := saved.Msg.GetErrors(); len(errs) != 1 || errs[0].GetField() != key {
+					t.Fatalf("validation errors = %v, want error for %q", errs, key)
+				}
+				return
+			}
+			if !saved.Msg.GetSuccess() || len(remoteClient.WriteFileCalls) != 1 {
+				t.Fatalf("valid multiplier was not written: %v", saved.Msg)
+			}
+			var output struct {
+				Settings  map[string]any `json:"settings"`
+				Untouched string         `json:"untouched"`
+			}
+			errDecode := json.Unmarshal(remoteClient.WriteFileCalls[0].Content, &output)
+			if errDecode != nil {
+				t.Fatalf("decode written JSON: %v", errDecode)
+			}
+			if output.Settings["health"] != tc.want || output.Untouched != "saved" {
+				t.Fatalf("written config = %+v, want numeric health %g and preserved unrelated field", output, tc.want)
+			}
+		})
+	}
+}
+
 func TestUpdateGameServerConfigFileWritesAttributeKeyedXML(t *testing.T) {
 	fixture := newRBACRPCFixture(t)
 	updateGameConfigSchemasForRemoteParity(t, fixture, sevenDaysLikeXMLSchema())

@@ -281,6 +281,8 @@ func getGameServerConfigFile(
 			IsManaged:         f.IsManaged,
 			ManagedSource:     f.ManagedSource,
 			IsMissingFromFile: f.IsMissingFromFile,
+			NumberMinimum:     f.NumberMinimum,
+			NumberMaximum:     f.NumberMaximum,
 			EnumOptions:       f.EnumOptions,
 			EnumLabels:        f.EnumLabels,
 			Required:          f.Required,

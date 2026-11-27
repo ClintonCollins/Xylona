@@ -10963,6 +10963,8 @@ type ConfigFieldData struct {
 	ManagedSource     string                 `protobuf:"bytes,17,opt,name=managed_source,json=managedSource,proto3" json:"managed_source,omitempty"`
 	EnumLabels        []string               `protobuf:"bytes,18,rep,name=enum_labels,json=enumLabels,proto3" json:"enum_labels,omitempty"`
 	Order             *int32                 `protobuf:"varint,19,opt,name=order,proto3,oneof" json:"order,omitempty"`
+	NumberMinimum     *float64               `protobuf:"fixed64,20,opt,name=number_minimum,json=numberMinimum,proto3,oneof" json:"number_minimum,omitempty"`
+	NumberMaximum     *float64               `protobuf:"fixed64,21,opt,name=number_maximum,json=numberMaximum,proto3,oneof" json:"number_maximum,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -11126,6 +11128,20 @@ func (x *ConfigFieldData) GetEnumLabels() []string {
 func (x *ConfigFieldData) GetOrder() int32 {
 	if x != nil && x.Order != nil {
 		return *x.Order
+	}
+	return 0
+}
+
+func (x *ConfigFieldData) GetNumberMinimum() float64 {
+	if x != nil && x.NumberMinimum != nil {
+		return *x.NumberMinimum
+	}
+	return 0
+}
+
+func (x *ConfigFieldData) GetNumberMaximum() float64 {
+	if x != nil && x.NumberMaximum != nil {
+		return *x.NumberMaximum
 	}
 	return 0
 }
@@ -23636,7 +23652,7 @@ const file_xylona_proto_rawDesc = "" +
 	"fieldCount\x12.\n" +
 	"\x13managed_field_count\x18\x05 \x01(\x05R\x11managedFieldCount\x12$\n" +
 	"\x0eexists_on_disk\x18\x06 \x01(\bR\fexistsOnDisk\x122\n" +
-	"\x15generate_before_start\x18\a \x01(\bR\x13generateBeforeStart\"\x8f\x05\n" +
+	"\x15generate_before_start\x18\a \x01(\bR\x13generateBeforeStart\"\x8d\x06\n" +
 	"\x0fConfigFieldData\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x14\n" +
@@ -23661,13 +23677,17 @@ const file_xylona_proto_rawDesc = "" +
 	"\x0emanaged_source\x18\x11 \x01(\tR\rmanagedSource\x12\x1f\n" +
 	"\venum_labels\x18\x12 \x03(\tR\n" +
 	"enumLabels\x12\x19\n" +
-	"\x05order\x18\x13 \x01(\x05H\x03R\x05order\x88\x01\x01B\n" +
+	"\x05order\x18\x13 \x01(\x05H\x03R\x05order\x88\x01\x01\x12*\n" +
+	"\x0enumber_minimum\x18\x14 \x01(\x01H\x04R\rnumberMinimum\x88\x01\x01\x12*\n" +
+	"\x0enumber_maximum\x18\x15 \x01(\x01H\x05R\rnumberMaximum\x88\x01\x01B\n" +
 	"\n" +
 	"\b_minimumB\n" +
 	"\n" +
 	"\b_maximumB\r\n" +
 	"\v_max_lengthB\b\n" +
-	"\x06_order\"Q\n" +
+	"\x06_orderB\x11\n" +
+	"\x0f_number_minimumB\x11\n" +
+	"\x0f_number_maximum\"Q\n" +
 	"\rAdvancedField\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\x12\x18\n" +

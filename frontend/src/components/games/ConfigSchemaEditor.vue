@@ -359,6 +359,8 @@ interface SchemaProperty {
   enum?: string[]
   minimum?: number
   maximum?: number
+  'x-number-minimum'?: number
+  'x-number-maximum'?: number
   maxLength?: number
   'x-managed'?: { source: string }
   'x-allow-multiple'?: boolean
@@ -484,6 +486,8 @@ function schemaToFields(schema: JsonSchema): SchemaFieldModel[] {
     required: requiredFields.has(key),
     minimum: prop.minimum ?? null,
     maximum: prop.maximum ?? null,
+    numberMinimum: prop['x-number-minimum'] ?? null,
+    numberMaximum: prop['x-number-maximum'] ?? null,
     maxLength: prop.maxLength ?? null,
     enumOptionsStr: prop.enum ? prop.enum.map((v: unknown) => String(v)).join(', ') : '',
     enumLabelsStr: Array.isArray(prop['x-enum-labels'])
@@ -538,6 +542,10 @@ function fieldsToSchema(): JsonSchema {
     }
     if (field.minimum !== null && field.minimum !== undefined) prop.minimum = field.minimum
     if (field.maximum !== null && field.maximum !== undefined) prop.maximum = field.maximum
+    if (field.type === 'number') {
+      if (field.numberMinimum !== null) prop['x-number-minimum'] = field.numberMinimum
+      if (field.numberMaximum !== null) prop['x-number-maximum'] = field.numberMaximum
+    }
     if (field.maxLength !== null && field.maxLength !== undefined) prop.maxLength = field.maxLength
     if (field.enumOptionsStr) {
       prop.enum = field.enumOptionsStr
@@ -592,6 +600,8 @@ function addField() {
     required: false,
     minimum: null,
     maximum: null,
+    numberMinimum: null,
+    numberMaximum: null,
     maxLength: null,
     enumOptionsStr: '',
     enumLabelsStr: '',
@@ -1074,6 +1084,8 @@ function importedFieldToFieldModel(field: ImportedField): SchemaFieldModel {
     required: false,
     minimum: null,
     maximum: null,
+    numberMinimum: null,
+    numberMaximum: null,
     maxLength: null,
     enumOptionsStr: '',
     enumLabelsStr: '',
@@ -1157,10 +1169,37 @@ function normalizeSchema(schema: JsonSchema): JsonSchema {
   return normalized
 }
 
+function validatedBounds(schema: JsonSchema): JsonSchema | null {
+  for (const [key, prop] of Object.entries(schema.properties ?? {})) {
+    if (!prop) continue
+    const explicitMin = prop['x-number-minimum']
+    const explicitMax = prop['x-number-maximum']
+    if (explicitMin === undefined && explicitMax === undefined) continue
+    if (prop.type !== 'number') {
+      notifyError(`Decimal bounds are only supported for Number fields ("${key}").`)
+      return null
+    }
+    const min = explicitMin ?? prop.minimum
+    const max = explicitMax ?? prop.maximum
+    if (
+      [prop.minimum, prop.maximum].some((bound) => bound != null && !Number.isInteger(bound)) ||
+      [explicitMin, explicitMax].some((bound) => bound != null && !Number.isFinite(bound))
+    ) {
+      notifyError(`Enter valid numeric bounds for "${key}".`)
+      return null
+    }
+    if (min != null && max != null && min > max) {
+      notifyError(`Minimum cannot exceed maximum for "${key}".`)
+      return null
+    }
+  }
+  return schema
+}
+
 /** The schema to save, or null (after telling the user why) when the Raw JSON is invalid. */
 function buildSchema(): JsonSchema | null {
   if (mode.value !== 'json' || !monacoEditor) {
-    return fieldsToSchema()
+    return validatedBounds(fieldsToSchema())
   }
 
   let raw: unknown
@@ -1177,7 +1216,7 @@ function buildSchema(): JsonSchema | null {
     return null
   }
 
-  return normalizeSchema(raw as JsonSchema)
+  return validatedBounds(normalizeSchema(raw as JsonSchema))
 }
 
 defineExpose({ buildSchema, isDirty })
