@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:6a0ddf1df3e7c0b4d118d840548ed6a74609c3a70cbc064cb6c43fcca44c3b60",
+  "content_hash": "sha256:bbb2f0c88e9ba5105d41a04ab925e86935f82c4ad18bce6670ea5ad34eb03f81",
   "game": {
     "id": "palworld",
     "name": "Palworld",
@@ -172,7 +172,7 @@
           "ChatPostLimitPerMinute": {
             "type": "integer",
             "title": "Chat messages per minute",
-            "default": 10,
+            "default": 30,
             "minimum": 0,
             "maximum": 100,
             "x-group": "Server",
@@ -417,7 +417,7 @@
           "DeathPenalty": {
             "type": "string",
             "title": "Death penalty",
-            "default": "All",
+            "default": "Item",
             "enum": [
               "None",
               "Item",
@@ -486,7 +486,7 @@
           "bIsStartLocationSelectByMap": {
             "type": "boolean",
             "title": "Allow map start-location selection",
-            "default": true,
+            "default": false,
             "x-group": "Player",
             "x-order": 16
           },
@@ -550,7 +550,7 @@
           "PalEggDefaultHatchingTime": {
             "type": "number",
             "title": "Huge egg hatch time (hours)",
-            "default": 72,
+            "default": 1,
             "x-group": "Pals",
             "x-order": 8
           },
