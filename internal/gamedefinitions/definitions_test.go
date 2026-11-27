@@ -290,6 +290,16 @@ func TestPalworldDefinitionConfigSchema(t *testing.T) {
 	if baseCampLimit.Default != float64(4) || baseCampLimit.Maximum == nil || *baseCampLimit.Maximum != 50 {
 		t.Fatalf("BaseCampMaxNumInGuild schema = %#v, want default 4 and maximum 50", baseCampLimit)
 	}
+	for field, want := range map[string]any{
+		"ChatPostLimitPerMinute":      float64(30),
+		"DeathPenalty":                "Item",
+		"PalEggDefaultHatchingTime":   float64(1),
+		"bIsStartLocationSelectByMap": false,
+	} {
+		if got := entry.Schema.Properties[field].Default; got != want {
+			t.Errorf("%s default = %#v, want %#v", field, got, want)
+		}
+	}
 }
 
 func TestExportParseRoundTripPreservesStructuredSections(t *testing.T) {
