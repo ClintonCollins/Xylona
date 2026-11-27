@@ -67,14 +67,18 @@ function field(overrides: Partial<ConfigFieldData>): ConfigFieldData {
 function mountEditor(
   props: {
     fields?: ConfigFieldData[]
+    gameId?: string
+    filePath?: string
+    format?: string
     advancedFields?: AdvancedField[]
     validationErrors?: ConfigValidationError[]
   } = {},
 ) {
   return mount(ConfigFileEditor, {
     props: {
-      filePath: 'server.properties',
-      format: 'properties',
+      filePath: props.filePath ?? 'server.properties',
+      format: props.format ?? 'properties',
+      ...(props.gameId ? { gameId: props.gameId } : {}),
       category: 'Server',
       categoryColor: '',
       fields: props.fields ?? [],
@@ -319,5 +323,89 @@ describe('ConfigFileEditor', () => {
     expect(wrapper.find('[data-test="advanced-match-count"]').text()).toBe(
       '1 match in Advanced Fields below',
     )
+  })
+})
+
+describe('Enshrouded day and night settings', () => {
+  const day = 'gameSettings.dayTimeDuration'
+  const night = 'gameSettings.nightTimeDuration'
+  const hunger = 'gameSettings.fromHungerToStarving'
+  function duration(key: string, title: string, defaultValue: string, value = '') {
+    return field({
+      key,
+      title: `${title} (nanoseconds)`,
+      fieldType: 'integer',
+      value,
+      defaultValue,
+      minimum: 120_000_000_000n,
+      maximum: 3_600_000_000_000n,
+    })
+  }
+
+  const file = { filePath: 'enshrouded_server.json', format: 'json', gameId: 'enshrouded' }
+
+  it('displays both defaults in minutes and submits endpoint values as integer nanoseconds', async () => {
+    const wrapper = mountEditor({
+      ...file,
+      fields: [
+        duration(day, 'Day duration', '1800000000000'),
+        duration(night, 'Night duration', '720000000000'),
+        duration(hunger, 'Time until starvation', '600000000000'),
+      ],
+    })
+
+    expect(
+      wrapper.get<HTMLInputElement>('input[aria-label="Day duration (minutes)"]').element.value,
+    ).toBe('30')
+    expect(
+      wrapper.get<HTMLInputElement>('input[aria-label="Night duration (minutes)"]').element.value,
+    ).toBe('12')
+    expect(
+      wrapper.get<HTMLInputElement>('input[aria-label="Time until starvation (nanoseconds)"]')
+        .element.value,
+    ).toBe('600000000000')
+
+    await typeInto(wrapper, day, '1.99')
+    expect((saveButton(wrapper).element as HTMLButtonElement).disabled).toBe(true)
+    await typeInto(wrapper, day, '2')
+    await typeInto(wrapper, night, '60.01')
+    expect((saveButton(wrapper).element as HTMLButtonElement).disabled).toBe(true)
+    await typeInto(wrapper, night, '60')
+    await saveButton(wrapper).trigger('click')
+
+    expect(savedMaps(wrapper)).toEqual([
+      [
+        [day, '120000000000'],
+        [night, '3600000000000'],
+      ],
+    ])
+  })
+
+  it('does not write an existing fractional duration when saving a different field', async () => {
+    const wrapper = mountEditor({
+      ...file,
+      fields: [
+        duration(day, 'Day duration', '1800000000000', '1830000000001'),
+        duration(night, 'Night duration', '720000000000'),
+      ],
+    })
+    const input = wrapper.get<HTMLInputElement>('input[aria-label="Day duration (minutes)"]')
+    expect(input.element.value).toBe('30.50000000002')
+    await input.setValue('31')
+    await input.setValue('30.50000000002')
+    await typeInto(wrapper, night, '12.5')
+    await saveButton(wrapper).trigger('click')
+    expect(savedMaps(wrapper)).toEqual([[[night, '750000000000']]])
+  })
+
+  it('does not convert a matching key for a different game', () => {
+    const wrapper = mountEditor({
+      ...file,
+      gameId: 'custom-game',
+      fields: [duration(day, 'Day duration', '1800000000000')],
+    })
+    expect(
+      wrapper.get<HTMLInputElement>('input[aria-label="Day duration (nanoseconds)"]').element.value,
+    ).toBe('1800000000000')
   })
 })

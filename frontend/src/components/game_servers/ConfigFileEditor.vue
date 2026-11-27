@@ -178,7 +178,7 @@
             <!-- Setting name -->
             <div class="setting-key">
               <div class="setting-key-label">
-                {{ field.title || field.key }}
+                {{ displayFieldTitle(field) }}
                 <q-badge v-if="field.isManaged" class="managed-badge" color="accent">
                   <q-icon class="q-mr-xs" name="lock" size="10px" />
                   Managed
@@ -191,7 +191,7 @@
                 >
               </div>
               <div v-if="field.description" class="setting-description">
-                {{ field.description }}
+                {{ displayFieldDescription(field) }}
               </div>
             </div>
             <!-- Setting value -->
@@ -269,24 +269,23 @@
               <q-input
                 v-else-if="isNumberField(field)"
                 :id="fieldId(field.key)"
-                :aria-label="field.title || field.key"
+                :aria-label="displayFieldTitle(field)"
                 :aria-required="field.required"
                 :error="serverError(field.key) !== undefined ? true : undefined"
                 :error-message="serverError(field.key)"
                 :hint="getNumberHint(field)"
-                :max="field.maximum ?? undefined"
-                :min="field.minimum ?? undefined"
-                :model-value="getFieldValue(field)"
-                :rules="fieldRules(field)"
+                :max="displayNumberBound(field, field.maximum)"
+                :min="displayNumberBound(field, field.minimum)"
+                :model-value="displayNumberValue(field)"
+                :rules="numberInputRules(field)"
+                :step="usesMinutes(field) ? 'any' : undefined"
                 class="inline-input"
                 dense
                 input-class="font-mono"
                 outlined
                 type="number"
                 @keydown.enter.prevent
-                @update:model-value="
-                  (val: string | number | null) => setFieldValue(field.key, String(val ?? ''))
-                " />
+                @update:model-value="(val: string | number | null) => setNumberField(field, val)" />
 
               <!-- String input (default) -->
               <q-input
@@ -365,6 +364,7 @@ import {
 const props = defineProps<{
   filePath: string
   format: string
+  gameId?: string
   category: string
   categoryColor: string
   fields: ConfigFieldData[]
@@ -494,7 +494,8 @@ function serverError(key: string): string | undefined {
 }
 
 function fieldLabel(key: string): string {
-  return props.fields.find((field) => field.key === key)?.title || key
+  const field = props.fields.find((field) => field.key === key)
+  return field ? displayFieldTitle(field) : key
 }
 
 const invalidFieldCount = computed(
@@ -755,6 +756,59 @@ function isNumberField(field: ConfigFieldData): boolean {
   return field.fieldType === 'integer' || field.fieldType === 'number'
 }
 
+const nanosecondsPerMinute = 60_000_000_000
+
+function usesMinutes(field: ConfigFieldData): boolean {
+  return (
+    props.gameId === 'enshrouded' &&
+    props.filePath === 'enshrouded_server.json' &&
+    props.format.toLowerCase() === 'json' &&
+    field.fieldType === 'integer' &&
+    !field.isManaged &&
+    field.enumOptions.length === 0 &&
+    (field.key === 'gameSettings.dayTimeDuration' || field.key === 'gameSettings.nightTimeDuration')
+  )
+}
+
+function displayFieldTitle(field: ConfigFieldData): string {
+  const title = field.title || field.key
+  return usesMinutes(field) ? `${title.replace(/ \(nanoseconds\)$/i, '')} (minutes)` : title
+}
+
+function displayFieldDescription(field: ConfigFieldData): string {
+  return usesMinutes(field)
+    ? field.description.replace(' One minute = 60,000,000,000 nanoseconds.', '')
+    : field.description
+}
+
+function minutesFromNanoseconds(value: string | bigint): string {
+  if (value === '') return ''
+  const minutes = Number(value) / nanosecondsPerMinute
+  // Within Enshrouded’s allowed range, 11 decimals round-trip each integer nanosecond.
+  return Number.isFinite(minutes) ? trimNumberPadding(minutes.toFixed(11)) : String(value)
+}
+
+function nanosecondsFromMinutes(value: string): string {
+  if (value === '') return ''
+  const nanoseconds = Math.round(Number(value) * nanosecondsPerMinute)
+  return Number.isSafeInteger(nanoseconds) ? String(nanoseconds) : 'NaN'
+}
+
+function displayNumberBound(field: ConfigFieldData, bound: bigint | undefined) {
+  if (bound === undefined) return undefined
+  return usesMinutes(field) ? minutesFromNanoseconds(bound) : bound
+}
+
+function displayNumberValue(field: ConfigFieldData): string {
+  const value = getFieldValue(field)
+  return usesMinutes(field) ? minutesFromNanoseconds(value) : value
+}
+
+function setNumberField(field: ConfigFieldData, input: string | number | null) {
+  const value = String(input ?? '')
+  setFieldValue(field.key, usesMinutes(field) ? nanosecondsFromMinutes(value) : value)
+}
+
 function originalValue(field: ConfigFieldData): string {
   const value = field.value || field.defaultValue
   return isNumberField(field) ? trimNumberPadding(value) : value
@@ -799,21 +853,22 @@ function toggleReveal(key: string) {
 }
 
 function getNumberHint(field: ConfigFieldData): string | undefined {
-  const hasMin = field.minimum !== undefined
-  const hasMax = field.maximum !== undefined
-  if (hasMin && hasMax) {
-    return `${field.minimum} – ${field.maximum}`
-  }
-  if (hasMin) {
-    return `Min: ${field.minimum}`
-  }
-  if (hasMax) {
-    return `Max: ${field.maximum}`
-  }
+  const min = displayNumberBound(field, field.minimum)
+  const max = displayNumberBound(field, field.maximum)
+  const unit = usesMinutes(field) ? ' minutes' : ''
+  if (min !== undefined && max !== undefined) return `${min} – ${max}${unit}`
+  if (min !== undefined) return `Min: ${min}${unit}`
+  if (max !== undefined) return `Max: ${max}${unit}`
   return undefined
 }
 
 type FieldRule = (val: string) => true | string
+
+function numberInputRules(field: ConfigFieldData): FieldRule[] {
+  return usesMinutes(field)
+    ? fieldRules(field).map((rule) => (value) => rule(nanosecondsFromMinutes(value ?? '')))
+    : fieldRules(field)
+}
 
 function fieldRules(field: ConfigFieldData): FieldRule[] {
   if (field.isManaged || field.fieldType === 'boolean' || field.enumOptions.length > 0) {
@@ -825,13 +880,20 @@ function fieldRules(field: ConfigFieldData): FieldRule[] {
   }
   // Empty optional values are left out of the file, so limits skip them.
   if (isNumberField(field)) {
+    if (usesMinutes(field)) {
+      rules.push(
+        (val) => val === '' || Number.isSafeInteger(Number(val)) || 'Enter a valid duration',
+      )
+    }
     if (field.minimum !== undefined) {
       const min = Number(field.minimum)
-      rules.push((val) => val === '' || Number(val) >= min || `Minimum: ${min}`)
+      const display = usesMinutes(field) ? `${minutesFromNanoseconds(String(min))} minutes` : min
+      rules.push((val) => val === '' || Number(val) >= min || `Minimum: ${display}`)
     }
     if (field.maximum !== undefined) {
       const max = Number(field.maximum)
-      rules.push((val) => val === '' || Number(val) <= max || `Maximum: ${max}`)
+      const display = usesMinutes(field) ? `${minutesFromNanoseconds(String(max))} minutes` : max
+      rules.push((val) => val === '' || Number(val) <= max || `Maximum: ${display}`)
     }
   } else if (field.maxLength) {
     const max = field.maxLength

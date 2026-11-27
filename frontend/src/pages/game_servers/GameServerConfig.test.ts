@@ -93,7 +93,7 @@ function mountConfig() {
         },
         ConfigFileEditor: {
           name: 'ConfigFileEditor',
-          props: ['fields', 'advancedFields', 'filePath', 'saving', 'validationErrors'],
+          props: ['fields', 'advancedFields', 'filePath', 'gameId', 'saving', 'validationErrors'],
           emits: ['save', 'discard', 'generate'],
           data: () => ({ hasChanges: false }),
           methods: { confirmSaved: mocks.confirmSaved },
@@ -264,6 +264,12 @@ describe('GameServerConfig', () => {
       reloadedFields,
     )
     expect(wrapper.findComponent({ name: 'ConfigFileEditor' }).props('saving')).toBe(false)
+  })
+
+  it('passes the game identity to the structured config editor', async () => {
+    const wrapper = await mountWithFile()
+
+    expect(wrapper.getComponent({ name: 'ConfigFileEditor' }).props('gameId')).toBe('minecraft')
   })
 
   it.each([
