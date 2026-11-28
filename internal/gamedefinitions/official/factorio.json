@@ -1,7 +1,7 @@
 {
   "document_type": "xylona.game_definition",
   "schema_version": 1,
-  "content_hash": "sha256:017a163a60533f16efe9c3fb76cb5f2e2c41a2f92221200cc49e152ff2a1bd47",
+  "content_hash": "sha256:8753de7a2551898ecbe4f7253931ea8aec1ef5be895b876e715632975ed7d34c",
   "game": {
     "id": "factorio",
     "name": "Factorio",
@@ -112,7 +112,8 @@
           },
           "game_password": {
             "type": "string",
-            "title": "Password",
+            "title": "Join password",
+            "description": "Password players enter to join. This is separate from your Factorio.com account.",
             "default": "",
             "x-group": "Access",
             "x-order": 1
@@ -120,6 +121,7 @@
           "visibility.public": {
             "type": "boolean",
             "title": "Public listing",
+            "description": "To list this server in the public game browser, set your Factorio.com username and authentication token in server-settings.json. With listing off, players can still connect directly by address.",
             "default": false,
             "x-group": "Networking",
             "x-order": 0
